@@ -4,31 +4,25 @@ import * as fs from 'fs';
 import { EOL } from 'os';
 import { fileURLToPath } from 'url';
 
-interface MyPluginSettings {
-	mySetting: string;
+interface ZoottelkeeperPluginSettings {
+	indexPrefix: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
+	indexPrefix: '_Index_of_'
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
-
+export default class ZoottelkeeperPlugin extends Plugin {
+	settings: ZoottelkeeperPluginSettings;
+	
 	async onload(): Promise<void> {
-		console.log('loading plugin');
-		
-		// this.addSettingTab(new SampleSettingTab(this.app, this));
-		/*this.triggerUpdateIndexFile = debounce(
-			this.triggerUpdateIndexFile.bind(this),
-			200,
-			false
-		  );*/
-		this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile ));
-		this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile ));
-		this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile ));
-
-		// sthis.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 1000));
+		await this.loadSettings()
+		this.app.workspace.onLayoutReady(() => {
+			this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile ));
+			this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile ));
+			this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile ));
+	})
+		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
 	}
 
 	onunload() {
@@ -44,7 +38,8 @@ export default class MyPlugin extends Plugin {
 	}
 
 	generateIndexContent = async (indexTFile: TAbstractFile): Promise<void> => {
-		console.log(this.app.vault.getFiles().map(file => file.path).join(','));
+		if (!indexTFile.parent)
+			return;
 	
 		const indexContent = indexTFile
 			.parent
@@ -52,25 +47,28 @@ export default class MyPlugin extends Plugin {
 			.filter(file => this.getParentFolder(file.path).contains(this.getParentFolder(indexTFile.path)))
 			.reduce(
 				(acc, curr) => {
-					acc.push(`--> [[${curr.name}]]`)
+					acc.push(`[[${curr.path}]]`)
 					return acc;
 				}, []);
-		console.log('FOLDER CONTENT ', indexContent);
-		await this.app.vault.modify(indexTFile as TFile, indexContent.join(EOL));
+		indexContent.push(`[[${indexTFile.parent.name}]]`);
+		try {
+			await this.app.vault.delete(indexTFile as TFile, true);
+			await this.app.vault.create(indexTFile.path, indexContent.join(EOL));
+		} catch(e){
+			console.warn('Error during deletion/creation of index files');
+		}
 	}
+
 	triggerUpdateIndexFile = async (file: any, oldPath?: string): Promise<void> => {
+		if (file.path.contains(this.settings.indexPrefix))
+			return;
+
 		if (oldPath){
 			
-			//console.log(`oldIndexFile: ${oldIndexFile}`)
 			const oldIndexFile = await this.getIndexFile(oldPath);
-		
-			console.log(`old index file: ${oldIndexFile.path}`)
 			await this.generateIndexContent(oldIndexFile);
 
 		}
-		
-		if (file.path.contains('000_Index_of_'))
-			return;
 	
 		const indexTFile = await this.getIndexFile(file.path);
 		console.log(`newIndexFile: ${indexTFile.path}`);
@@ -82,23 +80,29 @@ export default class MyPlugin extends Plugin {
 
 	getIndexFile = async (filePath: string): Promise<TAbstractFile> => {
 		const parent = this.getParentFolder(filePath);
-		const indexFilePath = (parent === '')
-				? `000_Index_of_${this.app.vault.getName()}.md`
-				:  `${parent}${path.sep}000_Index_of_${parent}.md`;
+		let indexFilePath;
+		if (parent === '')
+			indexFilePath = `${this.settings.indexPrefix}${this.app.vault.getName()}.md`
+		else {
+			const parentAbstrTFile = this.app.vault.getAbstractFileByPath(parent);
+			indexFilePath =`${parent}${path.sep}${this.settings.indexPrefix}${parentAbstrTFile.name}.md`;
+		}
+
+		
 		let indexAbstrFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
 		if (!indexAbstrFilePath){
 			try {
-				await this.app.vault.create(indexFilePath, '');
-				indexAbstrFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
+				indexAbstrFilePath = await this.app.vault.create(indexFilePath, '');
+				// indexAbstrFilePath = this.app.vault.getAbstractFileByPath(newIndexFile.path);
 
 			} catch(e){
-				Promise.resolve();
+				console.log(e);
+				Promise.reject();
 			}
 		}
 
 		const folder = indexAbstrFilePath.parent;
-
-		const indexFile =  folder.children.find((file:any) => file.path.contains('000_Index_of_'));
+		const indexFile =  folder.children.find((file:any) => file.path.contains(this.settings.indexPrefix));
 		return Promise.resolve(indexFile);
 
 	}
@@ -114,13 +118,14 @@ export default class MyPlugin extends Plugin {
 
 }
 
-class SampleModal extends Modal {
+class ZoottelkeeperPluginModal extends Modal {
 	constructor(app: App) {
 		super(app);
 	}
 
 	onOpen() {
 		let {contentEl} = this;
+		
 		contentEl.setText('Woah!');
 	}
 
@@ -131,10 +136,10 @@ class SampleModal extends Modal {
 	
 }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
+	plugin: ZoottelkeeperPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: ZoottelkeeperPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -147,14 +152,14 @@ class SampleSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Index prefix:')
+			.setDesc('It is a prefix of the index file.')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
+				.setPlaceholder('_Index_of_')
 				.setValue('')
 				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
+					console.log('Index prefix: ' + value);
+					this.plugin.settings.indexPrefix = value;
 					await this.plugin.saveSettings();
 				}));
 	}
