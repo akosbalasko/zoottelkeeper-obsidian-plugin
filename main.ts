@@ -37,7 +37,70 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	generateIndexContent = async (indexTFile: TAbstractFile): Promise<void> => {
+	
+	triggerUpdateIndexFile = async (file: any, oldPath?: string): Promise<void> => {
+		console.log(`file ${file.name} touched, path: ${file.path} `);
+		if (file.path.contains(this.settings.indexPrefix))
+			return Promise.resolve();
+		else {
+			if (oldPath){
+				await this.updateIndexContent(oldPath);
+			}
+			await this.updateIndexContent(file.path);
+		}
+	};
+
+
+	updateIndexContent= async (indexFilePath: string): Promise<void> => {
+		await this.removeIndexFilesRecursively(indexFilePath);
+		await this.generateIndexContentsRecursively(indexFilePath);
+	}
+
+	isFolder = (file: TAbstractFile): boolean => {
+		return Object.getPrototypeOf(file) === TFolder.prototype;
+	}
+
+	generateIndexContentsRecursively = async (indexFilePath: string): Promise<void> => {
+		const createIndexFile = async (file: TAbstractFile): Promise<void> => {
+			await this.generateIndexContent(file.path)
+		}
+		return this.iterateFoldersRecursively(indexFilePath, createIndexFile);
+	}
+
+	removeIndexFilesRecursively = async (indexFilePath: string): Promise<void> => {
+		const deleteIndexFile = async (file: TAbstractFile): Promise<void> => {
+			return this.app.vault.delete(file, true);
+
+		}
+		return this.iterateFoldersRecursively(indexFilePath, deleteIndexFile);
+	}
+
+	iterateFoldersRecursively= async (indexFilePath: string, func: Function): Promise<void> => {
+		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath);
+		const indexAbstFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
+		const folders = indexTFile.parent.children.filter(file => this.isFolder(file));
+		await func(indexTFile);
+		
+		if (!this.isRootIndex(indexTFile.path) && (!indexAbstFilePath || this.isFolder(indexAbstFilePath))){
+			const indexInFolder = await this.getIndexFileOfAFolder(indexTFile.path);
+			await func(indexInFolder);
+
+			for (const folder of folders){
+				const indexInFolder = await this.getIndexFileOfAFolder(folder.path);
+				await this.iterateFoldersRecursively(indexInFolder.path, func);	
+			}
+		}
+			
+ 
+	}
+
+	isRootIndex = (rootIndexCandidate: string): boolean => {
+		return rootIndexCandidate === `${this.settings.indexPrefix}${this.app.vault.getName()}.md`
+	}
+	generateIndexContent = async (indexFilePath: string): Promise<void> => {
+		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath); 
+		console.log(`newIndexFile: ${indexTFile.path}`);
+
 		if (!indexTFile.parent)
 			return;
 	
@@ -50,34 +113,42 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					acc.push(`[[${curr.path}]]`)
 					return acc;
 				}, []);
-		indexContent.push(`[[${indexTFile.parent.name}]]`);
+		const parentLink = this.getParentFolder(indexTFile.path)
+		indexContent.push(`[[${parentLink}]]`);
 		try {
-			await this.app.vault.delete(indexTFile as TFile, true);
-			await this.app.vault.create(indexTFile.path, indexContent.join(EOL));
+			// await this.app.vault.delete(indexTFile as TFile, true);
+			await this.app.vault.modify(indexTFile as TFile, indexContent.join(EOL));
 		} catch(e){
 			console.warn('Error during deletion/creation of index files');
 		}
 	}
 
-	triggerUpdateIndexFile = async (file: any, oldPath?: string): Promise<void> => {
-		if (file.path.contains(this.settings.indexPrefix))
-			return;
+	getIndexFileOfAFolder = async (folderPath: string): Promise<TAbstractFile> => {
+		const parent = this.getParentFolder(folderPath);
+		
+		let indexFilePath;
 
-		if (oldPath){
-			
-			const oldIndexFile = await this.getIndexFile(oldPath);
-			await this.generateIndexContent(oldIndexFile);
+		if (parent === '')
+			indexFilePath = `${this.settings.indexPrefix}${this.app.vault.getName()}.md`
+		else {
+			const parentAbstrTFile = this.app.vault.getAbstractFileByPath(parent);
 
+			indexFilePath =`${folderPath}${path.sep}${this.settings.indexPrefix}${parentAbstrTFile.name}.md`;
 		}
-	
-		const indexTFile = await this.getIndexFile(file.path);
-		console.log(`newIndexFile: ${indexTFile.path}`);
-		await this.generateIndexContent(indexTFile);
 
-	
-	};
+		let indexAbstrFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
+		if (!indexAbstrFilePath){
+			try {
+				indexAbstrFilePath = await this.app.vault.create(indexFilePath, '');
+				// indexAbstrFilePath = this.app.vault.getAbstractFileByPath(newIndexFile.path);
 
-
+			} catch(e){
+				console.log(e);
+				Promise.reject();
+			}
+		}
+		return indexAbstrFilePath;
+	}
 	getIndexFile = async (filePath: string): Promise<TAbstractFile> => {
 		const parent = this.getParentFolder(filePath);
 		let indexFilePath;
@@ -106,8 +177,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return Promise.resolve(indexFile);
 
 	}
-		
-
 
 	getParentFolder = (filePath: string): string => {
 		const fileFolderArray = filePath.split(path.sep);
