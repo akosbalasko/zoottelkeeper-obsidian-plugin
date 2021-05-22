@@ -1,8 +1,6 @@
-import { App, debounce, Modal, Plugin, PluginSettingTab, Setting, TFolder, TFile, TAbstractFile, } from 'obsidian';
+import { App, Modal, Plugin, PluginSettingTab, Setting, TFolder, TFile, TAbstractFile, } from 'obsidian';
 import * as path from 'path';
-import * as fs from 'fs';
 import { EOL } from 'os';
-import { fileURLToPath } from 'url';
 
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
@@ -20,7 +18,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile ));
 			this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile ));
-			this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile ));
+			this.registerEvent(this.app.vault.on("rename", this.triggerMoveIndexFile ));
 	})
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
 	}
@@ -37,60 +35,80 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	
-	triggerUpdateIndexFile = async (file: any, oldPath?: string): Promise<void> => {
+	triggerMoveIndexFile = async (file: any, oldPath: string): Promise<void> => {
+
 		console.log(`file ${file.name} touched, path: ${file.path} `);
 		if (file.path.contains(this.settings.indexPrefix))
 			return Promise.resolve();
 		else {
-			if (oldPath){
-				await this.updateIndexContent(oldPath);
-			}
+			await this.removeMainIndexContentOnly(oldPath);
+			await this.updateMainIndexContentOnly(oldPath);
+			await this.updateIndexContent(file.path);
+		}
+	};
+	removeMainIndexContentOnly = async (oldFilePath: string): Promise<void> => {
+		const oldIndexFilePath = await this.getIndexFile(oldFilePath);
+		if (oldIndexFilePath)
+			await this.app.vault.delete(oldIndexFilePath, true);
+	}
+	updateMainIndexContentOnly = async (oldFilePath: string): Promise<void> => {
+		const oldIndexFilePath = await this.getIndexFile(oldFilePath);
+		if (oldIndexFilePath)
+			await this.generateIndexContent(oldIndexFilePath.path);
+
+	}
+	triggerUpdateIndexFile = async (file: any): Promise<void> => {
+		console.log(`file ${file.name} touched, path: ${file.path} `);
+		if (file.path.contains(this.settings.indexPrefix))
+			return Promise.resolve();
+		else {
 			await this.updateIndexContent(file.path);
 		}
 	};
 
 
-	updateIndexContent= async (indexFilePath: string): Promise<void> => {
-		await this.removeIndexFilesRecursively(indexFilePath);
-		await this.generateIndexContentsRecursively(indexFilePath);
+	updateIndexContent= async (changedFilePath: string): Promise<void> => {
+		await this.removeIndexFile(changedFilePath);
+		await this.generateIndexContents(changedFilePath);
 	}
 
 	isFolder = (file: TAbstractFile): boolean => {
 		return Object.getPrototypeOf(file) === TFolder.prototype;
 	}
 
-	generateIndexContentsRecursively = async (indexFilePath: string): Promise<void> => {
+	generateIndexContents = async (indexFilePath: string): Promise<void> => {
 		const createIndexFile = async (file: TAbstractFile): Promise<void> => {
 			await this.generateIndexContent(file.path)
 		}
-		return this.iterateFoldersRecursively(indexFilePath, createIndexFile);
+		return this.performActionOnFolder(indexFilePath, createIndexFile);
 	}
 
-	removeIndexFilesRecursively = async (indexFilePath: string): Promise<void> => {
+	removeIndexFile = async (indexFilePath: string): Promise<void> => {
 		const deleteIndexFile = async (file: TAbstractFile): Promise<void> => {
 			return this.app.vault.delete(file, true);
 
 		}
-		return this.iterateFoldersRecursively(indexFilePath, deleteIndexFile);
+		return this.performActionOnFolder(indexFilePath, deleteIndexFile);
 	}
 
-	iterateFoldersRecursively= async (indexFilePath: string, func: Function): Promise<void> => {
+	performActionOnFolder= async (indexFilePath: string, func: Function): Promise<void> => {
 		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath);
 		const indexAbstFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
-		const folders = indexTFile.parent.children.filter(file => this.isFolder(file));
-		await func(indexTFile);
-		
-		if (!this.isRootIndex(indexTFile.path) && (!indexAbstFilePath || this.isFolder(indexAbstFilePath))){
-			const indexInFolder = await this.getIndexFileOfAFolder(indexTFile.path);
-			await func(indexInFolder);
+		if (indexTFile){
+			// const folders = indexTFile.parent.children.filter(file => this.isFolder(file));
+			await func(indexTFile);
+			/*
+			if (!this.isRootIndex(indexTFile.path) && (!indexAbstFilePath || this.isFolder(indexAbstFilePath))){
+				const indexInFolder = await this.getIndexFileOfAFolder(indexTFile.path);
+				await func(indexInFolder);
 
-			for (const folder of folders){
-				const indexInFolder = await this.getIndexFileOfAFolder(folder.path);
-				await this.iterateFoldersRecursively(indexInFolder.path, func);	
-			}
+				for (const folder of folders){
+					const indexInFolder = await this.getIndexFileOfAFolder(folder.path);
+					if (indexInFolder)
+						await this.performActionOnFolder(indexInFolder.path, func);	
+				}
+			}*/
 		}
-			
  
 	}
 
@@ -137,7 +155,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		}
 
 		let indexAbstrFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
-		if (!indexAbstrFilePath){
+		/*if (!indexAbstrFilePath){
 			try {
 				indexAbstrFilePath = await this.app.vault.create(indexFilePath, '');
 				// indexAbstrFilePath = this.app.vault.getAbstractFileByPath(newIndexFile.path);
@@ -146,7 +164,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				console.log(e);
 				Promise.reject();
 			}
-		}
+		}*/
 		return indexAbstrFilePath;
 	}
 	getIndexFile = async (filePath: string): Promise<TAbstractFile> => {
@@ -156,6 +174,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			indexFilePath = `${this.settings.indexPrefix}${this.app.vault.getName()}.md`
 		else {
 			const parentAbstrTFile = this.app.vault.getAbstractFileByPath(parent);
+			if(!parentAbstrTFile){
+				// it has moved
+				return null;
+			}
+
 			indexFilePath =`${parent}${path.sep}${this.settings.indexPrefix}${parentAbstrTFile.name}.md`;
 		}
 
@@ -168,13 +191,14 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 			} catch(e){
 				console.log(e);
-				Promise.reject();
+				Promise.resolve(null);
 			}
 		}
-
+/*
 		const folder = indexAbstrFilePath.parent;
 		const indexFile =  folder.children.find((file:any) => file.path.contains(this.settings.indexPrefix));
-		return Promise.resolve(indexFile);
+		return Promise.resolve(indexFile);*/
+		return indexAbstrFilePath;
 
 	}
 
