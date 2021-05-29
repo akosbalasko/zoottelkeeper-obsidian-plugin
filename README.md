@@ -23,7 +23,7 @@ Its name is going to be **_Index_of_\<folder>.md** by default, but its prefix is
 
 Then it writes the list of the files within that folder as wikistyled links. 
 
-PLEASE NOTE THAT CURRENTLY THIS PLUGIN IS IN BETA, SO PLEASE TRY IT FIRST WITH A TEST VAULT AND/OR BACKUP YOUR DATA TO PREVENT DATA LOSS. 
+WARNING! PLEASE NOTE THAT THIS PLUGIN IS CURRENTLY IN BETA, SO PLEASE TRY IT FIRST WITH A TEST VAULT AND/OR BACKUP YOUR DATA TO PREVENT DATA LOSS. 
 
 ## Example
 
