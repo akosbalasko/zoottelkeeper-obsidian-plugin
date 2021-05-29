@@ -1,4 +1,4 @@
-import { App, Modal, Plugin, PluginSettingTab, Setting, TFolder, TFile, TAbstractFile, } from 'obsidian';
+import { App, Modal, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import * as path from 'path';
 import { EOL } from 'os';
 
@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
-	lastVault: Array<string> = [];
+	lastVault: Array<string>;
 
 	async onload(): Promise<void> {
 		await this.loadSettings()
@@ -27,21 +27,34 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	async keepTheZooClean() {
-		try {
-		const changedFiles: Array<string> = [
-			...this.app.vault.getFiles().filter(currentFile => !this.lastVault.includes(currentFile.path)).map(file => file.path),
-			...this.lastVault.filter(currentFile => !this.app.vault.getFiles().map(file => file.path).includes(currentFile))
-		]
+		if (this.lastVault) {
+			try {
+			let changedFiles: Array<string> = [
+				...this.app.vault.getFiles().filter(currentFile => !this.lastVault.includes(currentFile.path)).map(file => file.path),
+				...this.lastVault.filter(currentFile => !this.app.vault.getFiles().map(file => file.path).includes(currentFile))
+			];
+			// filter the files within the same folder;
 
-		for (const changedFile of changedFiles){
-			const indexFile = await this.getIndexFile(changedFile);
-			await this.updateIndexContent(indexFile.path);
-			await this.updateIndexContent(this.getParentFolder(indexFile.path));
-			await this.updateIndexContent(this.getParentFolder(this.getParentFolder(indexFile.path)));
 
+			let uniqueIndexedChangedFiles: Array<string> = [];
+			for (const changedFile of changedFiles){
+				if (uniqueIndexedChangedFiles.every(file => this.getParentFolder(changedFile) !== this.getParentFolder(file))){
+					uniqueIndexedChangedFiles.push(changedFile);
+				}
+			}
+
+			for (const changedFile of uniqueIndexedChangedFiles){
+				let indexFile = await this.getIndexFile(changedFile)
+					|| await this.getIndexFile(this.getParentFolder(changedFile));
+				
+				await this.updateIndexContent(indexFile.path);
+				await this.updateIndexContent(this.getParentFolder(indexFile.path));
+				await this.updateIndexContent(this.getParentFolder(this.getParentFolder(indexFile.path)));
+
+			}
+			console.debug(`Changed Files: ${JSON.stringify(changedFiles)}`);
+		} catch(e){
 		}
-		console.debug(`Changed Files: ${JSON.stringify(changedFiles)}`);
-	} catch(e){
 	}
 	this.lastVault = this.app.vault.getFiles().map(file => file.path);
 
@@ -49,7 +62,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	onunload() {
 
-		console.log('unloading plugin');
+		console.debug('unloading plugin');
 	}
 
 	async loadSettings() {
@@ -83,19 +96,22 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	performActionOnFolder= async (indexFilePath: string, func: Function): Promise<void> => {
 		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath);
-		const indexAbstFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
 		if (indexTFile){
 			await func(indexTFile);
+		} else {
+			console.debug('no parent, nothing to do ');
 		}
  
 	}
 
 	generateIndexContent = async (indexFilePath: string): Promise<void> => {
 		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath); 
-		console.log(`newIndexFile: ${indexTFile.path}`);
+		console.debug(`newIndexFile: ${indexTFile.path}`);
 
-		if (!indexTFile.parent)
+		if (!indexTFile.parent){
+			console.debug('no parent, return...');
 			return;
+		}
 	
 		const indexContent = indexTFile
 			.parent
@@ -123,7 +139,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		else {
 			const parentAbstrTFile = this.app.vault.getAbstractFileByPath(parent);
 			if(!parentAbstrTFile){
-				// it has moved
+				console.debug(`${parent}, it has moved`);
 				return null;
 			}
 
@@ -137,8 +153,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				indexAbstrFilePath = await this.app.vault.create(indexFilePath, '');
 
 			} catch(e){
-				console.log(e);
-				Promise.resolve(null);
+				console.debug(e);
+				return null;
 			}
 		}
 
@@ -159,18 +175,7 @@ class ZoottelkeeperPluginModal extends Modal {
 	constructor(app: App) {
 		super(app);
 	}
-/*
-	onOpen() {
-		let {contentEl} = this;
-		
-		contentEl.setText('Woah!');
-	}
 
-	onClose() {
-		let {contentEl} = this;
-		contentEl.empty();
-	}
-	*/
 }
 
 class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
@@ -190,26 +195,28 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Index prefix:')
-			.setDesc('It is a prefix of the index file.')
 			.addText(text => text
 				.setPlaceholder('_Index_of_')
-				.setValue('')
+				.setValue(this.plugin.settings.indexPrefix)
 				.onChange(async (value) => {
 					console.debug('Index prefix: ' + value);
 					this.plugin.settings.indexPrefix = value;
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
-			.setName('Index update interval(sec):')
+			.setName('Index update interval (sec):')
+			.setDesc('Please note that it must be a number.')
 			.addText(intervalNumb => intervalNumb
 				.setPlaceholder('5')
-				.setValue('')
+				.setValue(this.plugin.settings.checkInterval.toString())
 				.onChange(async (value) => {
 					console.debug('intervalNumb: ' + value);
 					try {
 						this.plugin.settings.checkInterval = Number(value);
 						await this.plugin.saveSettings();
-					} catch(e) {}
+					} catch(e) {
+
+					}
 				}));
 	}
 }
