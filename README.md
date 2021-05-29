@@ -1,57 +1,42 @@
-## Obsidian Sample Plugin
 
-This is a sample plugin for Obsidian (https://obsidian.md).
 
-This project uses Typescript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in Typescript Definition format, which contains TSDoc comments describing what it does.
+# ZoottelKeeper: A Zookeeper for your Zettelkasten folder
 
-**Note:** The Obsidian API is still in early alpha and is subject to change at any time!
+## What? 
+The main idea of Zettelkasten is the links that connect your notes. However, if you would like to organize your notes to folders, you have to set up and maintain an index Markdown file for each folder that contains all of the notes of the folder as links (wikilinks, internal md links etc.).
+Which means that if you move a file to an other folder, your have to remove its link from the index file of the source folder, and add a link to the index file of the target folder. 
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Changes the default font color to red using `styles.css`.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+If you are struggling with the same problems (like me), ZoottelKeeper is your program. It watches your folder, catches the changes and updates your index files within every folder and subfolders automatically.
 
-### First time developing plugins?
+## How does it work?
+ZoottelKeeper watches the followings:
 
-Quick starting guide for new plugin devs:
+- _Creation_ of files in rootFolder and any subfolders within 
+- _Deletion_ of files in rootFolder and any subfolders within 
+- _Move_ a file among rootFolder to subFolders
+- _Move_ a file among subfolders
 
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+After recognizing that one of these actions happened, it creates an index file within the affected (sub)folder if it still does not exist.
 
-### Releasing new releases
+Its name is going to be **000_Index_of_\<folder>.md**. 
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments.
-- Publish the release.
+Then it writes the list of the files within that folder as wikistyled links. 
 
-### Adding your plugin to the community plugin list
+## Example
 
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+Assume that we have a Zettelkasten folder with 2 subfolders `FolderA` and `FolderB`.
 
-### How to use
+1. If I create a note called `fileA.md` in `FolderA` then ZoottelKeeper creates an index file within `FolderA` called **000_Index_of_FolderA.md** with content: 
+    - **[[fileA]]**
+    - **[[000_Index_of_FolderA.md]]**
 
-- Clone this repo.
-- `npm i` or `yarn` to install dependencies
-- `npm run dev` to start compilation in watch mode.
+2. If the file is being moved from `FolderA` to `FolderB`, **000_Index_of_FolderB.md** is going to be created in `FolderB` with content
 
-### Manually installing the plugin
+    - **[[fileA]]**
+    - **[[000_Index_of_FolderA.md]]**
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+   and the content the existing index file in `FolderA` is going to be updated by removing the link of `fileA`:
 
-### API Documentation
+    - **[[000_Index_of_FolderA.md]]**
 
-See https://github.com/obsidianmd/obsidian-api
+3. If fileA is being deleted from `FolderB` then its link is going to be removed from **000_Index_of_FolderB.md**
