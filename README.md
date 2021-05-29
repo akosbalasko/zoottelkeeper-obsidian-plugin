@@ -45,15 +45,15 @@ Assume that we have a Zettelkasten folder with 2 subfolders `FolderA` and `Folde
 3. If fileA is being deleted from `FolderB` then its link is going to be removed from **_Index_of_FolderB.md**
 
 
-** Install and usage **
+## Install and usage
 
 Similarly to any other plugins it is downloadable within Obsidian. Then, after enabling it, you will be able to configure Zoottelkeeper in its config interface. The following options can be configured:
 
-- The prefix of the index files. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example)will be recognized as index files, and in this cases they will be updated! 
+- **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example)will be recognized as index files, and in this cases they will be updated! 
 
-- Time interval of the index update, by default its 5 seconds. 
+- **Time interval of the index update**, by default its 5 seconds. 
 
-** Graph view **
+## Tip for Graph view
 
 As the folder links don't point to real notes (because they are folders), to make them visible in the Graph view, please enable the option of viewing orphan notes.
 
