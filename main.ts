@@ -33,8 +33,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				...this.app.vault.getFiles().filter(currentFile => !this.lastVault.includes(currentFile.path)).map(file => file.path),
 				...this.lastVault.filter(currentFile => !this.app.vault.getFiles().map(file => file.path).includes(currentFile))
 			];
-			// filter the files within the same folder;
-
 
 			let uniqueIndexedChangedFiles: Array<string> = [];
 			for (const changedFile of changedFiles){
