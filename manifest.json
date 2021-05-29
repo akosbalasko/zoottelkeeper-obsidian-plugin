@@ -1,10 +1,10 @@
 {
 	"id": "zoottelkeeper-obsidian-plugin",
 	"name": "Zoottelkeeper Plugin",
-	"version": "0.5.0",
-	"minAppVersion": "0.9.12",
-	"description": "This is a sample plugin for Obsidian. This plugin demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md/about",
+	"version": "0.5.1",
+	"minAppVersion": "0.12.1",
+	"description": "Zoottelkeeper creates and maintains index files in all of your folders in your vault. If you create/delete/move a note, the index files will be updated automatically.",
+	"author": "Akos Balasko",
+	"authorUrl": "https://github.com/akosbalasko",
 	"isDesktopOnly": false
 }
