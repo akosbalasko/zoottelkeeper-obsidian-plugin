@@ -189,7 +189,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+		containerEl.createEl('h2', {text: 'Settings for Zoottelkeeper plugin'});
 
 		new Setting(containerEl)
 			.setName('Index prefix:')

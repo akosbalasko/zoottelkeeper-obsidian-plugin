@@ -1,7 +1,7 @@
 {
   "name": "zoottelkeeper-obsidian-plugin",
   "version": "0.5.0",
-  "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+  "description": "Zoottelkeeper creates and maintains index files in all of your folders in your vault. If you create/delete/move a note, the index files will be updated automatically.",
   "main": "main.js",
   "scripts": {
     "dev": "rollup --config rollup.config.js -w",
