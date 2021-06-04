@@ -21,12 +21,12 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(async () => {
 			this.loadVault();
 			console.log(`Vault in files: ${JSON.stringify(this.app.vault.getMarkdownFiles().map(f => f.path))}`);
-			this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile));
-			this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile));
-			this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile));
 
 		});
-	
+		this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile));
+		this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile));
+		this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile));
+
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
 	}
 	loadVault() {
