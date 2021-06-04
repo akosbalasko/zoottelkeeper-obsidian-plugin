@@ -1,5 +1,4 @@
-import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
-import { EOL } from 'os';
+import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, TFolder, } from 'obsidian';
 
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
@@ -19,51 +18,70 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings()
-		this.app.workspace.onLayoutReady( async () => {
+		this.app.workspace.onLayoutReady(async () => {
 			this.loadVault();
-			console.debug(`Vault in files: ${JSON.stringify(this.app.vault.getMarkdownFiles().map(f => f.path))}`);
-			this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile ));
-			this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile ));
-			this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile ));
-	})
+			console.log(`Vault in files: ${JSON.stringify(this.app.vault.getMarkdownFiles().map(f => f.path))}`);
+			this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile));
+			this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile));
+			this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile));
+
+		});
+	
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
 	}
 	loadVault() {
 		this.lastVault = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
 	}
 	async keepTheZooClean() {
+		console.log('keeping the zoo clean...');
 		if (this.lastVault) {
 			const vaultFilePathsSet = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
 			try {
 
-			let changedFiles = new Set([
-				...Array.from(vaultFilePathsSet).filter(currentFile => !this.lastVault.has(currentFile)),
-				...Array.from(this.lastVault).filter(currentVaultFile => !vaultFilePathsSet.has(currentVaultFile))
-			])
-			// todo: update the unique index files only.
-			const updatedIndexFiles = new Set<TAbstractFile>();
-			for (const changedFile of changedFiles){
-				let indexFile = await this.getIndexFile(changedFile)
-					|| await this.getIndexFile(this.getParentFolder(changedFile));
-				if (!updatedIndexFiles.has(indexFile)){
-					await this.updateIndexContent(indexFile.path);
-					await this.updateIndexContent(this.getParentFolder(indexFile.path));
-					await this.updateIndexContent(this.getParentFolder(this.getParentFolder(indexFile.path)));
-					updatedIndexFiles.add(indexFile);
+				// getting the changed files using symmetric diff
+
+				let changedFiles = new Set([
+					...Array.from(vaultFilePathsSet).filter(currentFile => !this.lastVault.has(currentFile)),
+					...Array.from(this.lastVault).filter(currentVaultFile => !vaultFilePathsSet.has(currentVaultFile))
+				]);
+				console.log(`changedFiles: ${JSON.stringify(Array.from(changedFiles))}`);
+				// getting index files to be updated
+				const indexFiles2BUpdated = new Set<string>();
+
+				for (const changedFile of Array.from(changedFiles)) {
+					const indexFilePath = this.getIndexFilePath(changedFile);
+					if (indexFilePath)
+						indexFiles2BUpdated.add(indexFilePath);
+	
+					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
+					const parentIndexFilePath = this.getIndexFilePath(this.getParentFolder(changedFile));
+					if (parentIndexFilePath)
+						indexFiles2BUpdated.add(parentIndexFilePath);
+				
+					// its mandatory because if you move a subFolder, it is recognized as a set of files, but their parent's parent has to be updated also
+					// to remove the link from the subfolder parent to the subfolder
+					const grandParentIndexFilePath = this.getIndexFilePath(this.getParentFolder(this.getParentFolder(changedFile)));
+					if (grandParentIndexFilePath)
+						indexFiles2BUpdated.add(grandParentIndexFilePath);
+
+				}
+				console.log(`Index files to be updated: ${JSON.stringify(Array.from(indexFiles2BUpdated))}`);
+
+				// update index files 
+				for (const indexFile of Array.from(indexFiles2BUpdated)){
+					await this.updateIndexContent(indexFile);
 				}
 
+			} catch (e) {
 			}
-			console.debug(`Changed Files: ${JSON.stringify(changedFiles)}`);
-		} catch(e){
 		}
-	}
-	this.lastVault = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
+		this.lastVault = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
 
 	}
 
 	onunload() {
 
-		console.debug('unloading plugin');
+		console.log('unloading plugin');
 	}
 
 	async loadSettings() {
@@ -74,46 +92,34 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	updateIndexContent= async (changedFilePath: string): Promise<void> => {
-		await this.removeIndexFile(changedFilePath);
-		await this.generateIndexContents(changedFilePath);
+	updateIndexContent = async (changedFile: string): Promise<void> => {
+		await this.generateIndexContents(changedFile);
 	}
 
 
-	generateIndexContents = async (indexFilePath: string): Promise<void> => {
-		const createIndexFile = async (file: TAbstractFile): Promise<void> => {
-			await this.generateIndexContent(file.path)
-		}
-		return this.performActionOnFolder(indexFilePath, createIndexFile);
+	generateIndexContents = async (indexFile: string): Promise<void> => {
+
+		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile)
+		if (!indexTFile)
+			indexTFile =  await this.app.vault.create(indexFile, '');
+		if (indexTFile && indexTFile instanceof TFile)
+			return this.generateIndexContent(indexTFile);
 	}
 
-	removeIndexFile = async (indexFilePath: string): Promise<void> => {
-		const deleteIndexFile = async (file: TAbstractFile): Promise<void> => {
+	removeIndexFile = async (indexFile: string): Promise<void> => {
+		const deleteIndexFile = async (file: TAbstractFile): Promise<void> => {
 			return this.app.vault.delete(file, true);
 
 		}
-		return this.performActionOnFolder(indexFilePath, deleteIndexFile);
+		const indexTFile = this.app.vault.getAbstractFileByPath(indexFile)
+		if (indexTFile)
+			return this.app.vault.delete(indexTFile, true);
 	}
 
-	performActionOnFolder= async (indexFilePath: string, func: Function): Promise<void> => {
-		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath);
-		if (indexTFile){
-			await func(indexTFile);
-		} else {
-			console.debug('no parent, nothing to do ');
-		}
- 
-	}
+	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
 
-	generateIndexContent = async (indexFilePath: string): Promise<void> => {
-		const indexTFile: TAbstractFile = await this.getIndexFile(indexFilePath); 
-		console.debug(`newIndexFile: ${indexTFile.path}`);
-
-		if (!indexTFile.parent){
-			console.debug('no parent, return...');
-			return;
-		}
-	
+		if (indexTFile.name.contains('zottelTest'))
+			console.log('its the root');
 		const indexContent = indexTFile
 			.parent
 			.children
@@ -126,40 +132,35 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		const parentLink = this.getParentFolder(indexTFile.path)
 		indexContent.push(`[[${parentLink}]]`);
 		try {
-			await this.app.vault.modify(indexTFile as TFile, indexContent.join(EOL));
-		} catch(e){
+			await this.app.vault.modify(indexTFile as TFile, indexContent.join('\n'));
+		} catch (e) {
 			console.warn('Error during deletion/creation of index files');
 		}
 	}
 
-	getIndexFile = async (filePath: string): Promise<TAbstractFile> => {
-		const parent = this.getParentFolder(filePath);
-		let indexFilePath;
-		if (parent === '')
-			indexFilePath = `${this.settings.indexPrefix}${this.app.vault.getName()}.md`
-		else {
-			const parentAbstrTFile = this.app.vault.getAbstractFileByPath(parent);
-			if(!parentAbstrTFile){
-				console.debug(`${parent}, it has moved`);
-				return null;
-			}
+	getIndexFilePath = (filePath: string): string => {
 
-			indexFilePath =`${parent}/${this.settings.indexPrefix}${parentAbstrTFile.name}.md`;
-		}
+		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
 
 		
-		let indexAbstrFilePath = this.app.vault.getAbstractFileByPath(indexFilePath);
-		if (!indexAbstrFilePath){
-			try {
-				indexAbstrFilePath = await this.app.vault.create(indexFilePath, '');
+		if (this.isIndexFile(fileAbstrPath))
+			return null;
+		let parentPath = this.getParentFolder(filePath);
 
-			} catch(e){
-				console.debug(e);
-				return null;
-			}
+		// if its parent does not exits, then its a moved subfolder, so it should not be updated
+		const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
+		if (parentPath && parentPath !==''){
+			if (!parentTFolder)
+				return undefined;
+			parentPath = `${parentPath}/`;
 		}
+		
+		const parentName  = this.getParentFolderName(filePath);
 
-		return indexAbstrFilePath;
+
+		const indexFilePath = `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
+
+		return indexFilePath;
 
 	}
 
@@ -168,6 +169,18 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		fileFolderArray.pop();
 
 		return fileFolderArray.join('/');
+	}
+
+	getParentFolderName = (filePath: string): string => {
+		const parentFolder = this.getParentFolder(filePath);
+		const fileFolderArray =  parentFolder.split('/');
+		return (fileFolderArray[0] !== '') ? fileFolderArray[fileFolderArray.length-1] : this.app.vault.getName();
+	}
+
+	isIndexFile = (file: TAbstractFile): boolean => {
+
+		return file instanceof TFile  &&file.name.startsWith(this.settings.indexPrefix);
+
 	}
 
 }
@@ -188,11 +201,11 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		let {containerEl} = this;
+		let { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for Zoottelkeeper plugin'});
+		containerEl.createEl('h2', { text: 'Settings for Zoottelkeeper plugin' });
 
 		new Setting(containerEl)
 			.setName('Index prefix:')
@@ -200,7 +213,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				.setPlaceholder('_Index_of_')
 				.setValue(this.plugin.settings.indexPrefix)
 				.onChange(async (value) => {
-					console.debug('Index prefix: ' + value);
+					console.log('Index prefix: ' + value);
 					this.plugin.settings.indexPrefix = value;
 					await this.plugin.saveSettings();
 				}));
