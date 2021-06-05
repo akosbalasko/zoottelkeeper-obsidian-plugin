@@ -50,7 +50,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					const indexFilePath = this.getIndexFilePath(changedFile);
 					if (indexFilePath)
 						indexFiles2BUpdated.add(indexFilePath);
-	
+
 					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
 					const parentIndexFilePath = this.getIndexFilePath(this.getParentFolder(changedFile));
 					if (parentIndexFilePath)
@@ -60,7 +60,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				console.debug(`Index files to be updated: ${JSON.stringify(Array.from(indexFiles2BUpdated))}`);
 
 				// update index files 
-				for (const indexFile of Array.from(indexFiles2BUpdated)){
+				for (const indexFile of Array.from(indexFiles2BUpdated)) {
 					await this.updateIndexContent(indexFile);
 				}
 
@@ -91,16 +91,14 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	generateIndexContents = async (indexFile: string): Promise<void> => {
 
-		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile) ||  await this.app.vault.create(indexFile, '');
+		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile) || await this.app.vault.create(indexFile, '');
 
-		if (indexTFile && indexTFile instanceof TFile)
+		if (indexTFile && indexTFile instanceof TFile)
 			return this.generateIndexContent(indexTFile);
 	}
 
 	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
 
-		if (indexTFile.name.contains('zottelTest'))
-			console.debug('its the root');
 		const indexContent = indexTFile.parent.children
 			.reduce(
 				(acc, curr) => {
@@ -108,7 +106,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					return acc;
 				}, []);
 		const parentLink = this.getParentFolder(indexTFile.path)
-		if (parentLink && parentLink !== ''){
+		if (parentLink && parentLink !== '') {
 			indexContent.push(`[[${parentLink}]]`);
 		}
 		try {
@@ -126,19 +124,19 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
 
-		
+
 		if (this.isIndexFile(fileAbstrPath))
 			return null;
 		let parentPath = this.getParentFolder(filePath);
 
 		// if its parent does not exits, then its a moved subfolder, so it should not be updated
 		const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
-		if (parentPath && parentPath !==''){
+		if (parentPath && parentPath !== '') {
 			if (!parentTFolder)
 				return undefined;
 			parentPath = `${parentPath}/`;
 		}
-		const parentName  = this.getParentFolderName(filePath);
+		const parentName = this.getParentFolderName(filePath);
 
 		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
 
@@ -151,15 +149,15 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return fileFolderArray.join('/');
 	}
 
-	getParentFolderName = (filePath: string): string => {
+	getParentFolderName = (filePath: string): string => {
 		const parentFolder = this.getParentFolder(filePath);
-		const fileFolderArray =  parentFolder.split('/');
-		return (fileFolderArray[0] !== '') ? fileFolderArray[fileFolderArray.length-1] : this.app.vault.getName();
+		const fileFolderArray = parentFolder.split('/');
+		return (fileFolderArray[0] !== '') ? fileFolderArray[fileFolderArray.length - 1] : this.app.vault.getName();
 	}
 
 	isIndexFile = (file: TAbstractFile): boolean => {
 
-		return file instanceof TFile  &&file.name.startsWith(this.settings.indexPrefix);
+		return file instanceof TFile && file.name.startsWith(this.settings.indexPrefix);
 
 	}
 
