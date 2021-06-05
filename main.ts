@@ -2,12 +2,10 @@ import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstra
 
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
-	checkInterval: number;
 }
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexPrefix: '_Index_of_',
-	checkInterval: 5,
 }
 
 export default class ZoottelkeeperPlugin extends Plugin {
@@ -93,9 +91,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	generateIndexContents = async (indexFile: string): Promise<void> => {
 
-		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile)
-		if (!indexTFile)
-			indexTFile =  await this.app.vault.create(indexFile, '');
+		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile) ||  await this.app.vault.create(indexFile, '');
+
 		if (indexTFile && indexTFile instanceof TFile)
 			return this.generateIndexContent(indexTFile);
 	}
@@ -141,12 +138,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				return undefined;
 			parentPath = `${parentPath}/`;
 		}
-		
 		const parentName  = this.getParentFolderName(filePath);
 
-		const indexFilePath = `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
-
-		return indexFilePath;
+		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
 
 	}
 
