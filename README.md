@@ -19,7 +19,7 @@ ZoottelKeeper watches the followings:
 
 After recognizing that one of these actions happened, it creates an index file within the affected (sub)folder if it still does not exist.
 
-Its name is going to be **_Index_of_\<folder>.md** by default, but its prefix is customizable in the config of the plugin.
+Its name is going to be **_Index_of_\<folder>.md** by default, its prefix (_Index_of_) is customizable in the config of the plugin.
 
 Then it writes the list of the files within that folder as wikistyled links. 
 
