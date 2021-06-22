@@ -1,11 +1,19 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
+import { IndexItemStyle } from './IndexItemStyle';
+
+
 
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
+	intexItemStyle: IndexItemStyle;
+
 }
+
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexPrefix: '_Index_of_',
+	intexItemStyle: IndexItemStyle.PureLink,
+
 }
 
 export default class ZoottelkeeperPlugin extends Plugin {
@@ -102,12 +110,12 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		const indexContent = indexTFile.parent.children
 			.reduce(
 				(acc, curr) => {
-					acc.push(`[[${curr.path}]]`)
+					acc.push(this.generateIndexItem(curr.path))
 					return acc;
 				}, []);
 		const parentLink = this.getParentFolder(indexTFile.path)
 		if (parentLink && parentLink !== '') {
-			indexContent.push(`[[${parentLink}]]`);
+			indexContent.push(this.generateIndexItem(parentLink));
 		}
 		try {
 			if (indexTFile instanceof TFile)
@@ -120,6 +128,17 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		}
 	}
 
+	generateIndexItem = (path: string): string => {
+
+		switch(this.settings.intexItemStyle){
+			case IndexItemStyle.PureLink:
+				return `[[${path}]]`
+			case IndexItemStyle.List:
+				return `- [[${path}]]`
+			case IndexItemStyle.Checkbox:
+				return `- [ ] [[${path}]]`
+		};
+	}
 	getIndexFilePath = (filePath: string): string => {
 
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
@@ -195,6 +214,21 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					this.plugin.settings.indexPrefix = value;
 					await this.plugin.saveSettings();
 				}));
+		new Setting(containerEl)
+            .setName("Index item style")
+            .setDesc("Select the style of the desired index item")
+            .addDropdown(async (dropdown) => {
+				dropdown.addOption(IndexItemStyle.PureLink, 'Pure Obsidian link');
+				dropdown.addOption(IndexItemStyle.List, 'Listed link');
+				dropdown.addOption(IndexItemStyle.Checkbox, 'Checkboxed link');
+
+                dropdown.setValue(this.plugin.settings.intexItemStyle);
+                dropdown.onChange(async (option) => {
+					console.debug('Chosen index item style: ' + option);
+					this.plugin.settings.intexItemStyle = option as IndexItemStyle;
+					await this.plugin.saveSettings();
+                });
+            });
 
 	}
 }
