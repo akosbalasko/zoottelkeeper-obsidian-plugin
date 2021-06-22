@@ -51,7 +51,12 @@ Similarly to any other plugins it is downloadable within Obsidian. Then, after e
 
 - **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example)will be recognized as index files, and in this cases they will be updated! 
 
-- **Time interval of the index update**, by default its 5 seconds. 
+- **Style of the index items**. Index items can be generated as
+  - pure Obsidian links, 
+  - list items (dots)
+  - links with checkboxes
+
+
 
 ## Tip for Graph view
 
