@@ -1,4 +1,4 @@
-# Obsidian Clean Index Plugin
+# Obsidian AutoMOCs
 ### Based on Zoottelkeeper 0.6.0
 
 ---
