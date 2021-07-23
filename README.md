@@ -14,7 +14,7 @@ Changes 2 and 3 are **implemented for all variants**, not just for "No File Path
 
 ## Important points raised by akosbalasko
 
-> **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, > check the example) will be recognized as index files, and in this cases they will be updated!
+> **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example) will be recognized as index files, and in this cases they will be updated!
 
 
 As I'm using the plugin together with the folder-note plugin, so **I actually want my index-files to be the same name as the folder** because then the index-file is hidden and can be "reached" by clicking directly on the folder. But if your setup is different, please take this into consideration as it might have an impact.
