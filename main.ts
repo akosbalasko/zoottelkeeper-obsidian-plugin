@@ -1,247 +1,334 @@
-import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
-import { IndexItemStyle } from './IndexItemStyle';
-
-
+import {
+  App,
+  Modal,
+  debounce,
+  Plugin,
+  PluginSettingTab,
+  Setting,
+  TFile,
+  TAbstractFile,
+} from "obsidian";
+import { IndexItemStyle } from "./IndexItemStyle";
 
 interface ZoottelkeeperPluginSettings {
-	indexPrefix: string;
-	intexItemStyle: IndexItemStyle;
-
+  indexPrefix: string;
+  indexItemStyle: IndexItemStyle;
+  indexTagValue: string;
+  indexTagBoolean: boolean;
+  cleanPathBoolean: boolean;
 }
-
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: '',
-	intexItemStyle: IndexItemStyle.NoPath,
-
-}
+  indexPrefix: "",
+  indexItemStyle: IndexItemStyle.PureLink,
+  indexTagValue: "MOC",
+  indexTagBoolean: true,
+  cleanPathBoolean: true,
+};
 
 export default class ZoottelkeeperPlugin extends Plugin {
-	settings: ZoottelkeeperPluginSettings;
-	lastVault: Set<string>;
+  settings: ZoottelkeeperPluginSettings;
+  lastVault: Set<string>;
 
-	triggerUpdateIndexFile = debounce(this.keepTheZooClean.bind(this), 1000, true)
+  triggerUpdateIndexFile = debounce(
+    this.keepTheZooClean.bind(this),
+    1000,
+    true
+  );
 
-	async onload(): Promise<void> {
-		await this.loadSettings()
-		this.app.workspace.onLayoutReady(async () => {
-			this.loadVault();
-			console.debug(`Vault in files: ${JSON.stringify(this.app.vault.getMarkdownFiles().map(f => f.path))}`);
+  async onload(): Promise<void> {
+    await this.loadSettings();
+    this.app.workspace.onLayoutReady(async () => {
+      this.loadVault();
+      console.debug(
+        `Vault in files: ${JSON.stringify(
+          this.app.vault.getMarkdownFiles().map((f) => f.path)
+        )}`
+      );
+    });
+    this.registerEvent(
+      this.app.vault.on("create", this.triggerUpdateIndexFile)
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", this.triggerUpdateIndexFile)
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", this.triggerUpdateIndexFile)
+    );
 
-		});
-		this.registerEvent(this.app.vault.on("create", this.triggerUpdateIndexFile));
-		this.registerEvent(this.app.vault.on("delete", this.triggerUpdateIndexFile));
-		this.registerEvent(this.app.vault.on("rename", this.triggerUpdateIndexFile));
+    this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
+  }
+  loadVault() {
+    this.lastVault = new Set(
+      this.app.vault.getMarkdownFiles().map((file) => file.path)
+    );
+  }
+  async keepTheZooClean() {
+    console.debug("keeping the zoo clean...");
+    if (this.lastVault) {
+      const vaultFilePathsSet = new Set(
+        this.app.vault.getMarkdownFiles().map((file) => file.path)
+      );
+      try {
+        // getting the changed files using symmetric diff
 
-		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
-	}
-	loadVault() {
-		this.lastVault = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
-	}
-	async keepTheZooClean() {
-		console.debug('keeping the zoo clean...');
-		if (this.lastVault) {
-			const vaultFilePathsSet = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
-			try {
+        let changedFiles = new Set([
+          ...Array.from(vaultFilePathsSet).filter(
+            (currentFile) => !this.lastVault.has(currentFile)
+          ),
+          ...Array.from(this.lastVault).filter(
+            (currentVaultFile) => !vaultFilePathsSet.has(currentVaultFile)
+          ),
+        ]);
+        console.debug(
+          `changedFiles: ${JSON.stringify(Array.from(changedFiles))}`
+        );
+        // getting index files to be updated
+        const indexFiles2BUpdated = new Set<string>();
 
-				// getting the changed files using symmetric diff
+        for (const changedFile of Array.from(changedFiles)) {
+          const indexFilePath = this.getIndexFilePath(changedFile);
+          if (indexFilePath) indexFiles2BUpdated.add(indexFilePath);
 
-				let changedFiles = new Set([
-					...Array.from(vaultFilePathsSet).filter(currentFile => !this.lastVault.has(currentFile)),
-					...Array.from(this.lastVault).filter(currentVaultFile => !vaultFilePathsSet.has(currentVaultFile))
-				]);
-				console.debug(`changedFiles: ${JSON.stringify(Array.from(changedFiles))}`);
-				// getting index files to be updated
-				const indexFiles2BUpdated = new Set<string>();
+          // getting the parents' index notes of each changed file in order to update their links as well (hierarchical backlinks)
+          const parentIndexFilePath = this.getIndexFilePath(
+            this.getParentFolder(changedFile)
+          );
+          if (parentIndexFilePath) indexFiles2BUpdated.add(parentIndexFilePath);
+        }
+        console.debug(
+          `Index files to be updated: ${JSON.stringify(
+            Array.from(indexFiles2BUpdated)
+          )}`
+        );
 
-				for (const changedFile of Array.from(changedFiles)) {
-					const indexFilePath = this.getIndexFilePath(changedFile);
-					if (indexFilePath)
-						indexFiles2BUpdated.add(indexFilePath);
+        // update index files
+        for (const indexFile of Array.from(indexFiles2BUpdated)) {
+          await this.updateIndexContent(indexFile);
+        }
+      } catch (e) {}
+    }
+    this.lastVault = new Set(
+      this.app.vault.getMarkdownFiles().map((file) => file.path)
+    );
+  }
 
-					// getting the parents' index notes of each changed file in order to update their links as well (hierarchical backlinks)
-					const parentIndexFilePath = this.getIndexFilePath(this.getParentFolder(changedFile));
-					if (parentIndexFilePath)
-						indexFiles2BUpdated.add(parentIndexFilePath);
+  onunload() {
+    console.debug("unloading plugin");
+  }
 
-				}
-				console.debug(`Index files to be updated: ${JSON.stringify(Array.from(indexFiles2BUpdated))}`);
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
 
-				// update index files 
-				for (const indexFile of Array.from(indexFiles2BUpdated)) {
-					await this.updateIndexContent(indexFile);
-				}
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
 
-			} catch (e) {
-			}
-		}
-		this.lastVault = new Set(this.app.vault.getMarkdownFiles().map(file => file.path));
+  updateIndexContent = async (changedFile: string): Promise<void> => {
+    await this.generateIndexContents(changedFile);
+  };
 
-	}
+  generateIndexContents = async (indexFile: string): Promise<void> => {
+    let indexTFile =
+      this.app.vault.getAbstractFileByPath(indexFile) ||
+      (await this.app.vault.create(indexFile, ""));
 
-	onunload() {
+    if (indexTFile && indexTFile instanceof TFile)
+      return this.generateIndexContent(indexTFile);
+  };
 
-		console.debug('unloading plugin');
-	}
+  generateIndexContent = async (indexTFile: TFile): Promise<void> => {
+    const indexContent = indexTFile.parent.children.reduce((acc, curr) => {
+      acc.push(this.generateIndexItem(curr.path));
+      return acc;
+    }, []);
+    const parentLink = this.getParentFolder(indexTFile.path);
+    if (parentLink && parentLink !== "") {
+      indexContent.push(this.generateIndexItem(parentLink));
+    }
+    try {
+      if (indexTFile instanceof TFile) {
+        // removing an element if it happens to be in the array twice
+        // --> this works because I remove the file path so the folder and index-file with have the same name
+        var newIndexContent = indexContent.filter(function (e) {
+          return indexContent.indexOf(e) == indexContent.lastIndexOf(e);
+        });
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+        // sorting the index-array alphabetically
+        newIndexContent.sort(function (a, b) {
+          return a.localeCompare(b);
+        });
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+        // checks if meta-tag should be set
+        if (this.settings.indexTagBoolean === true) {
+          var tag = this.settings.indexTagValue.valueOf();
+          // if one or multiple index-tags are set, they are inserted at the beginning of the index-array
+          newIndexContent.unshift(`---\ntags: [${tag}]\n---`);
+        }
 
-	updateIndexContent = async (changedFile: string): Promise<void> => {
-		await this.generateIndexContents(changedFile);
-	}
+        await this.app.vault.modify(indexTFile, newIndexContent.join("\n"));
+      } else {
+        throw new Error("Creation index as folder is not supported");
+      }
+    } catch (e) {
+      console.warn("Error during deletion/creation of index files");
+    }
+  };
 
+  generateIndexItem = (path: string): string => {
+    if (this.settings.cleanPathBoolean.valueOf() === true) {
+      // removing the path and '.md' ending from the file depending on toggle
+      path = path.split("/").pop().replace(".md", "");
+    }
+    switch (this.settings.indexItemStyle) {
+      case IndexItemStyle.PureLink:
+        return `[[${path}]]`;
+      case IndexItemStyle.List:
+        return `- [[${path}]]`;
+      case IndexItemStyle.Checkbox:
+        return `- [x] [[${path}]]`;
+    }
+  };
+  getIndexFilePath = (filePath: string): string => {
+    const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
 
-	generateIndexContents = async (indexFile: string): Promise<void> => {
+    if (this.isIndexFile(fileAbstrPath)) return null;
+    let parentPath = this.getParentFolder(filePath);
 
-		let indexTFile = this.app.vault.getAbstractFileByPath(indexFile) || await this.app.vault.create(indexFile, '');
+    // if its parent does not exits, then its a moved subfolder, so it should not be updated
+    const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
+    if (parentPath && parentPath !== "") {
+      if (!parentTFolder) return undefined;
+      parentPath = `${parentPath}/`;
+    }
+    const parentName = this.getParentFolderName(filePath);
 
-		if (indexTFile && indexTFile instanceof TFile)
-			return this.generateIndexContent(indexTFile);
-	}
+    return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
+  };
 
-	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
+  getParentFolder = (filePath: string): string => {
+    const fileFolderArray = filePath.split("/");
+    fileFolderArray.pop();
 
-		const indexContent = indexTFile.parent.children
-			.reduce(
-				(acc, curr) => {
+    return fileFolderArray.join("/");
+  };
 
-					acc.push(this.generateIndexItem(curr.path))
-					return acc;
-				}, []);
-		const parentLink = this.getParentFolder(indexTFile.path)
-		if (parentLink && parentLink !== '') {
-			indexContent.push(this.generateIndexItem(parentLink));
-		}
-		try {
-			if (indexTFile instanceof TFile){
-				var newIndexContent = indexContent.filter(function(e) {
-					return indexContent.indexOf(e) == indexContent.lastIndexOf(e);
-				  });
-				  
-				newIndexContent.sort(function (a, b) {
-					return a.localeCompare(b);
-				});
+  getParentFolderName = (filePath: string): string => {
+    const parentFolder = this.getParentFolder(filePath);
+    const fileFolderArray = parentFolder.split("/");
+    return fileFolderArray[0] !== ""
+      ? fileFolderArray[fileFolderArray.length - 1]
+      : this.app.vault.getName();
+  };
 
-				await this.app.vault.modify(indexTFile, newIndexContent.join('\n'));}
-			else {
-				throw new Error('Creation index as folder is not supported');
-			}
-		} catch (e) {
-			console.warn('Error during deletion/creation of index files');
-		}
-	}
-
-	generateIndexItem = (path: string): string => {
-		switch(this.settings.intexItemStyle){
-			case IndexItemStyle.PureLink:
-				return `[[${path}]]`
-			case IndexItemStyle.List:
-				return `- [[${path}]]`
-			case IndexItemStyle.Checkbox:
-				return `- [x] [[${path}]]`
-			case IndexItemStyle.NoPath:
-				path = path.split("/").pop();
-				path = path.replace(".md","");
-				return `[[${path}]]`
-		};
-	}
-	getIndexFilePath = (filePath: string): string => {
-
-		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
-
-
-		if (this.isIndexFile(fileAbstrPath))
-			return null;
-		let parentPath = this.getParentFolder(filePath);
-
-		// if its parent does not exits, then its a moved subfolder, so it should not be updated
-		const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
-		if (parentPath && parentPath !== '') {
-			if (!parentTFolder)
-				return undefined;
-			parentPath = `${parentPath}/`;
-		}
-		const parentName = this.getParentFolderName(filePath);
-
-		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
-
-	}
-
-	getParentFolder = (filePath: string): string => {
-		const fileFolderArray = filePath.split('/');
-		fileFolderArray.pop();
-
-		return fileFolderArray.join('/');
-	}
-
-	getParentFolderName = (filePath: string): string => {
-		const parentFolder = this.getParentFolder(filePath);
-		const fileFolderArray = parentFolder.split('/');
-		return (fileFolderArray[0] !== '') ? fileFolderArray[fileFolderArray.length - 1] : this.app.vault.getName();
-	}
-
-	isIndexFile = (file: TAbstractFile): boolean => {
-
-		return file instanceof TFile && file.name.startsWith(this.settings.indexPrefix);
-
-	}
-
+  isIndexFile = (file: TAbstractFile): boolean => {
+    return (
+      file instanceof TFile && file.name.startsWith(this.settings.indexPrefix)
+    );
+  };
 }
 
 class ZoottelkeeperPluginModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
+  constructor(app: App) {
+    super(app);
+  }
 }
 
 class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
-	plugin: ZoottelkeeperPlugin;
+  plugin: ZoottelkeeperPlugin;
 
-	constructor(app: App, plugin: ZoottelkeeperPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+  constructor(app: App, plugin: ZoottelkeeperPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
 
-	display(): void {
-		let { containerEl } = this;
+  display(): void {
+    let { containerEl } = this;
 
-		containerEl.empty();
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Settings: Clean Index Plugin" });
 
-		containerEl.createEl('h2', { text: 'Settings for Zoottelkeeper plugin' });
+    // Added some headers and reorganized the structure for a better overview
+    containerEl.createEl("h3", { text: "General Settings" });
 
-		new Setting(containerEl)
-			.setName('Index prefix:')
-			.addText(text => text
-				.setPlaceholder('_Index_of_')
-				.setValue(this.plugin.settings.indexPrefix)
-				.onChange(async (value) => {
-					console.debug('Index prefix: ' + value);
-					this.plugin.settings.indexPrefix = value;
-					await this.plugin.saveSettings();
-				}));
-		new Setting(containerEl)
-            .setName("Index item style")
-            .setDesc("Select the style of the desired index item")
-            .addDropdown(async (dropdown) => {
-				dropdown.addOption(IndexItemStyle.PureLink, 'Pure Obsidian link');
-				dropdown.addOption(IndexItemStyle.List, 'Listed link');
-				dropdown.addOption(IndexItemStyle.Checkbox, 'Checkboxed link');
-				dropdown.addOption(IndexItemStyle.NoPath, 'No File Path');
+    // Index List settings
+    new Setting(containerEl)
+      .setName("Clean Files")
+      .setDesc(
+        "This enables you to only show the files without path and '.md' ending."
+      )
+      .addToggle((t) => {
+        t.setValue(this.plugin.settings.cleanPathBoolean);
+        t.onChange(async (v) => {
+          this.plugin.settings.cleanPathBoolean = v;
+          await this.plugin.saveSettings();
+        });
+      });
 
-                dropdown.setValue(this.plugin.settings.intexItemStyle);
-                dropdown.onChange(async (option) => {
-					console.debug('Chosen index item style: ' + option);
-					this.plugin.settings.intexItemStyle = option as IndexItemStyle;
-					await this.plugin.saveSettings();
-                });
-            });
+    new Setting(containerEl)
+      .setName("List Style")
+      .setDesc("Select the style of the index-list.")
+      .addDropdown(async (dropdown) => {
+        dropdown.addOption(IndexItemStyle.PureLink, "Pure Obsidian link");
+        dropdown.addOption(IndexItemStyle.List, "Listed link");
+        dropdown.addOption(IndexItemStyle.Checkbox, "Checkboxed link");
 
-	}
+        dropdown.setValue(this.plugin.settings.indexItemStyle);
+        dropdown.onChange(async (option) => {
+          console.debug("Chosen index item style: " + option);
+          this.plugin.settings.indexItemStyle = option as IndexItemStyle;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // index prefix
+    new Setting(containerEl)
+      .setName("Index Prefix")
+      .setDesc(
+        "Per default the file is named after your folder, but you can prefix it here."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("")
+          .setValue(this.plugin.settings.indexPrefix)
+          .onChange(async (value) => {
+            console.debug("Index prefix: " + value);
+            this.plugin.settings.indexPrefix = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    containerEl.createEl("h4", { text: "Meta Tags" });
+
+    // Enabling Meta Tags
+    new Setting(containerEl)
+      .setName("Enable Meta Tags")
+      .setDesc(
+        "You can add Meta Tags at the top of your index-file. This is useful when you're using the index files as MOCs."
+      )
+      .addToggle((t) => {
+        t.setValue(this.plugin.settings.indexTagBoolean);
+        t.onChange(async (v) => {
+          this.plugin.settings.indexTagBoolean = v;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // setting the meta tag value
+    new Setting(containerEl)
+      .setName("Set Meta Tags")
+      .setDesc(
+        "You can add one or multiple tags to your index-files! There is no need to use '#', just use commas between tags."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("moc")
+          .setValue(this.plugin.settings.indexTagValue)
+          .onChange(async (value) => {
+            this.plugin.settings.indexTagValue = value;
+            await this.plugin.saveSettings();
+          })
+      );
+  }
 }
