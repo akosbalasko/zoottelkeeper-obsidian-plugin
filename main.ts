@@ -11,8 +11,8 @@ interface ZoottelkeeperPluginSettings {
 
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: '_Index_of_',
-	intexItemStyle: IndexItemStyle.PureLink,
+	indexPrefix: '',
+	intexItemStyle: IndexItemStyle.NoPath,
 
 }
 
@@ -20,7 +20,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
 	lastVault: Set<string>;
 
-	triggerUpdateIndexFile = debounce(this.keepTheZooClean.bind(this), 3000, true)
+	triggerUpdateIndexFile = debounce(this.keepTheZooClean.bind(this), 1000, true)
 
 	async onload(): Promise<void> {
 		await this.loadSettings()
@@ -59,7 +59,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					if (indexFilePath)
 						indexFiles2BUpdated.add(indexFilePath);
 
-					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
+					// getting the parents' index notes of each changed file in order to update their links as well (hierarchical backlinks)
 					const parentIndexFilePath = this.getIndexFilePath(this.getParentFolder(changedFile));
 					if (parentIndexFilePath)
 						indexFiles2BUpdated.add(parentIndexFilePath);
@@ -110,6 +110,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		const indexContent = indexTFile.parent.children
 			.reduce(
 				(acc, curr) => {
+
 					acc.push(this.generateIndexItem(curr.path))
 					return acc;
 				}, []);
@@ -118,8 +119,16 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			indexContent.push(this.generateIndexItem(parentLink));
 		}
 		try {
-			if (indexTFile instanceof TFile)
-				await this.app.vault.modify(indexTFile, indexContent.join('\n'));
+			if (indexTFile instanceof TFile){
+				var newIndexContent = indexContent.filter(function(e) {
+					return indexContent.indexOf(e) == indexContent.lastIndexOf(e);
+				  });
+				  
+				newIndexContent.sort(function (a, b) {
+					return a.localeCompare(b);
+				});
+
+				await this.app.vault.modify(indexTFile, newIndexContent.join('\n'));}
 			else {
 				throw new Error('Creation index as folder is not supported');
 			}
@@ -129,14 +138,17 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	generateIndexItem = (path: string): string => {
-
 		switch(this.settings.intexItemStyle){
 			case IndexItemStyle.PureLink:
 				return `[[${path}]]`
 			case IndexItemStyle.List:
 				return `- [[${path}]]`
 			case IndexItemStyle.Checkbox:
-				return `- [ ] [[${path}]]`
+				return `- [x] [[${path}]]`
+			case IndexItemStyle.NoPath:
+				path = path.split("/").pop();
+				path = path.replace(".md","");
+				return `[[${path}]]`
 		};
 	}
 	getIndexFilePath = (filePath: string): string => {
@@ -221,6 +233,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				dropdown.addOption(IndexItemStyle.PureLink, 'Pure Obsidian link');
 				dropdown.addOption(IndexItemStyle.List, 'Listed link');
 				dropdown.addOption(IndexItemStyle.Checkbox, 'Checkboxed link');
+				dropdown.addOption(IndexItemStyle.NoPath, 'No File Path');
 
                 dropdown.setValue(this.plugin.settings.intexItemStyle);
                 dropdown.onChange(async (option) => {

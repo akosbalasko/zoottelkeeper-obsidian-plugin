@@ -1,14 +1,18 @@
 {
-  "name": "zoottelkeeper-obsidian-plugin",
-  "version": "0.6.0",
-  "description": "Zoottelkeeper creates and maintains index files in all of your folders in your vault. If you create/delete/move a note, the index files will be updated automatically.",
+  "name": "obsidian_clean_index",
+  "version": "0.0.1",
+  "description": "Adapted version of the Zoottelkeeper plugin.",
   "main": "main.js",
   "scripts": {
     "dev": "rollup --config rollup.config.js -w",
     "build": "rollup --config rollup.config.js --environment BUILD:production"
   },
-  "keywords": ["zettelkasten", "obsidian.md", "obsidian-plugin"],
-  "author": "Akos Balasko",
+  "keywords": [
+    "zettelkasten",
+    "obsidian.md",
+    "obsidian-plugin"
+  ],
+  "author": "Akos Balasko, Micha Brugger",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^18.0.0",
