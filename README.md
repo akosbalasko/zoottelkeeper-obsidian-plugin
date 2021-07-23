@@ -1,8 +1,13 @@
-# Obsidian Clean Index Plugin (Based on Zoottelkeeper 0.6.0)
+# Obsidian Clean Index Plugin
+### Based on Zoottelkeeper 0.6.0
+
+---
 
 For the full documentation please check the main [repo](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin).
 
-## Changes
+---
+
+## 1. Changes
 
 1. Added new indexing-variant "No File Path", which removes path and .md ending from names of indexed files.
 2. The folder and the index-file itself are no longer listed in the index-list.
@@ -12,7 +17,7 @@ Changes 2 and 3 are **implemented for all variants**, not just for "No File Path
 
 ---
 
-## Important points raised by akosbalasko
+## 2. Important points raised by akosbalasko
 
 > **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example) will be recognized as index files, and in this cases they will be updated!
 
