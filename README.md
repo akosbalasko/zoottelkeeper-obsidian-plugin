@@ -1,4 +1,4 @@
-# Obsidian Clean Index (Based on Zoottelkeeper 0.6.0)
+# Obsidian Clean Index Plugin (Based on Zoottelkeeper 0.6.0)
 
 For the full documentation please check the main [repo](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin).
 
