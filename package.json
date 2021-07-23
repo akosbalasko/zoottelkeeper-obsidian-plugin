@@ -1,7 +1,7 @@
 {
-  "name": "obsidian_clean_index",
-  "version": "0.0.1",
-  "description": "Adapted version of the Zoottelkeeper plugin.",
+  "name": "obsidian_autoMOC",
+  "version": "0.0.2",
+  "description": "This plugin automatically creates, maintains and tags MOCs for all your folders. It is based on Zoottelkeeper 0.6.0.",
   "main": "main.js",
   "scripts": {
     "dev": "rollup --config rollup.config.js -w",

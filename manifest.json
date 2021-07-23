@@ -1,9 +1,9 @@
 {
-	"id": "obsidian_clean_index",
-	"name": "Clean Index",
-	"version": "0.0.1",
+	"id": "obsidian_autoMOC",
+	"name": "AutoMOC",
+	"version": "0.0.2",
 	"minAppVersion": "0.12.1",
-	"description": "Adapted version of the Zoottelkeeper plugin.",
+	"description": "This plugin automatically creates, maintains and tags MOCs for all your folders. It is based on Zoottelkeeper 0.6.0.",
 	"author": "Akos Balasko, Micha Brugger",
 	"authorUrl": "https://github.com/akosbalasko, https://github.com/michabrugger",
 	"isDesktopOnly": false
