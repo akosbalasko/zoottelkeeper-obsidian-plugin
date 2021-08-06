@@ -32,7 +32,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
   triggerUpdateIndexFile = debounce(
     this.keepTheZooClean.bind(this),
-    1000,
+    3000,
     true
   );
 
@@ -41,7 +41,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
     this.app.workspace.onLayoutReady(async () => {
       this.loadVault();
       console.debug(
-        `Vault in files: ${JSON.stringify(
+        `Files in Vault: ${JSON.stringify(
           this.app.vault.getMarkdownFiles().map((f) => f.path)
         )}`
       );
@@ -71,7 +71,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
       );
       try {
         // getting the changed files using symmetric diff
-
         let changedFiles = new Set([
           ...Array.from(vaultFilePathsSet).filter(
             (currentFile) => !this.lastVault.has(currentFile)
@@ -88,6 +87,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
         for (const changedFile of Array.from(changedFiles)) {
           const indexFilePath = this.getIndexFilePath(changedFile);
+
           if (indexFilePath) indexFiles2BUpdated.add(indexFilePath);
 
           // getting the parents' index notes of each changed file in order to update their links as well (hierarchical backlinks)
@@ -135,7 +135,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
       (await this.app.vault.create(indexFile, ""));
 
     if (indexTFile && indexTFile instanceof TFile)
-      return this.generateIndexContent(indexTFile);
+      return this.generateIndexContent(indexTFile);   
   };
 
   generateIndexContent = async (indexTFile: TFile): Promise<void> => {
@@ -150,11 +150,12 @@ export default class ZoottelkeeperPlugin extends Plugin {
     try {
       if (indexTFile instanceof TFile) {
         // removing an element if it happens to be in the array twice
-        // --> this works because I remove the file path so the folder and index-file with have the same name
+        // --> this works because I clean the file path so the folder and index-file with have the same name
         var newIndexContent = indexContent.filter(function (e) {
           return indexContent.indexOf(e) == indexContent.lastIndexOf(e);
         });
 
+        
         // sorting the index-array alphabetically
         newIndexContent.sort(function (a, b) {
           return a.localeCompare(b);
@@ -164,7 +165,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
         if (this.settings.indexTagBoolean === true) {
           var tag = this.settings.indexTagValue.valueOf();
           // if one or multiple index-tags are set, they are inserted at the beginning of the index-array
-          newIndexContent.unshift(`---\ntags: [${tag}]\n---`);
+          newIndexContent.unshift(`---\ntags: [${tag}]\n---\n`);
         }
 
         await this.app.vault.modify(indexTFile, newIndexContent.join("\n"));
@@ -179,15 +180,18 @@ export default class ZoottelkeeperPlugin extends Plugin {
   generateIndexItem = (path: string): string => {
     if (this.settings.cleanPathBoolean.valueOf() === true) {
       // removing the path and '.md' ending from the file depending on toggle
-      path = path.split("/").pop().replace(".md", "");
+      var newPath = path.split("/").pop().replace(".md", "");
+    } else {
+      var newPath = path;
     }
+
     switch (this.settings.indexItemStyle) {
       case IndexItemStyle.PureLink:
-        return `[[${path}]]`;
+        return `[[${newPath}]]`;
       case IndexItemStyle.List:
-        return `- [[${path}]]`;
+        return `- [[${newPath}]]`;
       case IndexItemStyle.Checkbox:
-        return `- [x] [[${path}]]`;
+        return `- [x] [[${newPath}]]`;
     }
   };
   getIndexFilePath = (filePath: string): string => {
@@ -203,14 +207,12 @@ export default class ZoottelkeeperPlugin extends Plugin {
       parentPath = `${parentPath}/`;
     }
     const parentName = this.getParentFolderName(filePath);
-
     return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
   };
 
   getParentFolder = (filePath: string): string => {
     const fileFolderArray = filePath.split("/");
     fileFolderArray.pop();
-
     return fileFolderArray.join("/");
   };
 
@@ -223,10 +225,17 @@ export default class ZoottelkeeperPlugin extends Plugin {
   };
 
   isIndexFile = (file: TAbstractFile): boolean => {
-    return (
+
+		// the original return was responsible for half the errors (and existed as a bug in OG Zoottelkeeper too)
+		// --> the problem was that the index files didn't update when the prefix was ""
+		// the if statement solves this issue by checking this case and treating it separately
+    if (this.settings.indexPrefix === "") return (file instanceof TFile && file.name === file.parent.name);
+    else {
+      return (
       file instanceof TFile && file.name.startsWith(this.settings.indexPrefix)
-    );
+    )};
   };
+  
 }
 
 class ZoottelkeeperPluginModal extends Modal {
