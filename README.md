@@ -39,9 +39,9 @@ There is a toggle to clean the indexed files. Depending on whether you would lik
 
 ### 3.2 Choose your List-Style
 There is three different types of lists for you to choose from:
-  - pure Obsidian links, 
-  - list items (dots)
-  - links with checkboxes
+	- pure Obsidian links, 
+	- list items (dots)
+	- links with checkboxes
 
 ### 3.3 Choose your Index Prefix
 Depending on your preferences, you can set any prefix to your index-files (or none at all). (Please note that the prefix must be unique, otherwise, normal notes with the same note name might be recognized as index files, and in this cases they will be updated! 
@@ -56,7 +56,7 @@ If you're setting multiple tags please make sure to separate them with commas.
 ### 3.6 Additional Things
 - The indexed files are sorted alphabetically.
 - The file and the folder are no longer listed in the in the index-file. (This currently only works if you toggle 'Clean Files'.)
-  
+	
 ---
 
 **As with every plugin, there is risk of data-loss and I don't give any guarantees or take any responsibility.**

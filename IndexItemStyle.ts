@@ -1,6 +1,6 @@
 
 export enum IndexItemStyle {
-    List = 'list',
-    Checkbox = 'checkbox',
-    PureLink='pureLink',
+	List = 'list',
+	Checkbox = 'checkbox',
+	PureLink='pureLink',
 }
