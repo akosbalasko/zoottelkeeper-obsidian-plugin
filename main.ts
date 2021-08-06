@@ -235,7 +235,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			file instanceof TFile && file.name.startsWith(this.settings.indexPrefix)
 		)};
 	};
-	
 }
 
 class ZoottelkeeperPluginModal extends Modal {
