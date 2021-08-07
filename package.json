@@ -7,7 +7,11 @@
     "dev": "rollup --config rollup.config.js -w",
     "build": "rollup --config rollup.config.js --environment BUILD:production"
   },
-  "keywords": ["zettelkasten", "obsidian.md", "obsidian-plugin"],
+  "keywords": [
+    "zettelkasten",
+    "obsidian.md",
+    "obsidian-plugin"
+  ],
   "author": "Akos Balasko",
   "license": "MIT",
   "devDependencies": {

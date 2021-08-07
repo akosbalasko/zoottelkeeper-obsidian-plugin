@@ -1,8 +1,6 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './IndexItemStyle';
 
-
-
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
 	intexItemStyle: IndexItemStyle;
@@ -11,7 +9,7 @@ interface ZoottelkeeperPluginSettings {
 
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: '_Index_of_',
+	indexPrefix: '' ,
 	intexItemStyle: IndexItemStyle.PureLink,
 
 }
@@ -107,16 +105,27 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
 
-		const indexContent = indexTFile.parent.children
+		let indexContent;
+		// get subFolders
+		const subFolders = indexTFile.parent.children.filter(item => !this.isFile(item));
+		const files = indexTFile.parent.children.filter(item => this.isFile(item));
+		console.log(subFolders);
+		indexContent = subFolders
+			.reduce(
+				(acc, curr) => {
+					acc.push(this.generateIndexFolderItem(curr.path));
+					return acc;
+				}, []);
+
+		indexContent = files
+			.filter(file => file.name !== indexTFile.name )
 			.reduce(
 				(acc, curr) => {
 					acc.push(this.generateIndexItem(curr.path))
 					return acc;
-				}, []);
+				}, indexContent);
 		const parentLink = this.getParentFolder(indexTFile.path)
-		if (parentLink && parentLink !== '') {
-			indexContent.push(this.generateIndexItem(parentLink));
-		}
+
 		try {
 			if (indexTFile instanceof TFile)
 				await this.app.vault.modify(indexTFile, indexContent.join('\n'));
@@ -138,6 +147,15 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			case IndexItemStyle.Checkbox:
 				return `- [ ] [[${path}]]`
 		};
+	}
+
+	generateIndexFolderItem = (path: string): string => {
+		return this.generateIndexItem(this.getInnerIndexFilePath(path));
+	}
+
+	getInnerIndexFilePath = (folderPath: string): string => {
+		const folderName = this.getFolderName(folderPath);
+		return `${folderPath}/${this.settings.indexPrefix}${folderName}.md`;
 	}
 	getIndexFilePath = (filePath: string): string => {
 
@@ -174,10 +192,21 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return (fileFolderArray[0] !== '') ? fileFolderArray[fileFolderArray.length - 1] : this.app.vault.getName();
 	}
 
-	isIndexFile = (file: TAbstractFile): boolean => {
+	getFolderName = (folderPath: string): string => {
+		const folderArray = folderPath.split('/');
+		return (folderArray[0] !== '') ? folderArray[folderArray.length - 1] : this.app.vault.getName();
+	}
 
-		return file instanceof TFile && file.name.startsWith(this.settings.indexPrefix);
+	isIndexFile = (item: TAbstractFile): boolean => {
 
+		return this.isFile(item)
+			&& (this.settings.indexPrefix === ''
+				? item.name === item.parent.name
+				: item.name.startsWith(this.settings.indexPrefix));
+	}
+
+	isFile = (item: TAbstractFile): boolean => {
+		return item instanceof TFile;
 	}
 
 }
