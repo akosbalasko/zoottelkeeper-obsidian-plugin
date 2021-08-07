@@ -109,7 +109,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		// get subFolders
 		const subFolders = indexTFile.parent.children.filter(item => !this.isFile(item));
 		const files = indexTFile.parent.children.filter(item => this.isFile(item));
-		console.log(subFolders);
 		indexContent = subFolders
 			.reduce(
 				(acc, curr) => {
