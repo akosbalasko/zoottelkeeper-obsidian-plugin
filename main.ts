@@ -235,7 +235,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Index prefix:')
 			.addText(text => text
-				.setPlaceholder('_Index_of_')
+				.setPlaceholder('')
 				.setValue(this.plugin.settings.indexPrefix)
 				.onChange(async (value) => {
 					console.debug('Index prefix: ' + value);
