@@ -1,15 +1,9 @@
+# Obsidian Zoottelkeeper
 
+## 1. General Idea
+Following the idea of Nick Milo and the [LYT](https://www.linkingyourthinking.com/) -concept (Linking Your Thinking), an amazing way to bring structure to your files, folder and thoughts is by using **Maps of Content** (MOCs). Because even though Obsidian is generally built around the idea of being 'beyond' folder structures, you generally still need to have some sort of system to store all those juicy insights.
 
-# ZoottelKeeper: A Zookeeper for your Zettelkasten folder
-
-## What? 
-
-The main idea of Zettelkasten is the links that connect your notes. However, if you would like to organize your notes to folders, you have to set up and maintain an index Markdown file for each folder that contains all of the notes of the folder as links (wikilinks, internal md links etc.).
-Which means that if you move a file to an other folder, your have to remove its link from the index file of the source folder, and add a link to the index file of the target folder. 
-
-If you are struggling with the same problems (like me), ZoottelKeeper is your program. It watches your folder, catches the changes and updates your index files within every folder and subfolders automatically.
-
-## How does it work?
+## 2. How does it work?
 ZoottelKeeper watches the followings:
 
 - _Creation_ of files in rootFolder and any subfolders within 
@@ -17,49 +11,48 @@ ZoottelKeeper watches the followings:
 - _Move_ a file among rootFolder to subFolders
 - _Move_ a file among subfolders
 
-After recognizing that one of these actions happened, it creates an index file within the affected (sub)folder if it still does not exist.
+### 2.1 Introduction
+So, the idea behind Zoottelkeeper is to help you generate the base form of these maps automatically. It does so by indexing all the files and folders that lay in a folder, thus creating a link from the file to all it's content.
 
-Its name is going to be **_Index_of_\<folder>.md** by default, its prefix (_Index_of_) is customizable in the config of the plugin.
+![image](https://user-images.githubusercontent.com/46029522/126865703-c3a3d12f-a88f-42d1-806a-415d9e1afa53.png)  -->  ![image](https://user-images.githubusercontent.com/46029522/126865758-883888d3-8cf1-496a-aa04-58ae6a4c69a6.png)  --> ![image](https://user-images.githubusercontent.com/46029522/126865823-84272e62-8f4f-417c-8af1-e624a02963be.png)
 
-Then it writes the list of the files within that folder as wikistyled links. 
+**(1)** shows the current folder structure. The plugin generates an index-file in each folder, showing all files and folders it contains. An example list **(2)** is shown for the main folder, but the subfolders contain a similar file. Each of these index-files is tagged **(3)** based on your preferences. This then results in the graph view with "folders" **(4)** (it's actually the index-files that are connected, but it looks like folders) and their respective files **(5)**.
 
-WARNING! PLEASE NOTE THAT THIS PLUGIN IS CURRENTLY IN BETA, SO PLEASE TRY IT FIRST WITH A TEST VAULT AND/OR BACKUP YOUR DATA TO PREVENT DATA LOSS. 
+### 2.2 What's actually cool about this?
+So far so good, we've seen that before. The actually nice thing is, if I now move *Folder B* into *Folder A* **(6)**, then the index file will automatically update **(7)**, resulting in the desired graph view **(8)**.
 
-## Example
+![image](https://user-images.githubusercontent.com/46029522/126866100-be3717da-cae6-4550-9e52-7719d00e49f7.png)  -->  ![image](https://user-images.githubusercontent.com/46029522/126866120-b2b8d0b1-2334-4be9-88d8-84bb825705a6.png)  -->  ![image](https://user-images.githubusercontent.com/46029522/126866136-ba068748-5698-4ca7-aeff-562ab0c435a0.png)
 
-Assume that we have a Zettelkasten folder with 2 subfolders `FolderA` and `FolderB`.
+### 2.3 Disclaimer and other used plugins
+You might have noticed that you can't see the index files in the folders in view **(1)** and **(6)**, that is because I did not add a prefix to the index-file (so it's automatically named like the folder) and I also use the **Folder Note** plugin, just for the fact that it hides files in folders when they are named like the folder and displays them when you click on the folder (which is super nice for the MOC purpose here too).
 
-1. If I create a note called `fileA.md` in `FolderA` then ZoottelKeeper creates an index file within `FolderA` called **_Index_of_FolderA.md** with content: 
-    - **[[fileA]]**
-    - **[[_Index_of_FolderA.md]]**
+### 2.4 TL;DR
+Does this plugin replace the need to think about structure? No. But it could relief you of the tedious work that has to happen when you just want to allocate files to a broad category and, what's even bigger, it will relief you of the pain to manually go through all the files and change their "parent-category whenever a topic gets too big or you want to move it somewhere else. Basically all you have to do is save things where they belong and the plugin will map that basic structure out for you. You can then, on top of that, add whatever MOC, index or tag logic you like.
 
-2. If the file is being moved from `FolderA` to `FolderB`, **_Index_of_FolderB.md** is going to be created in `FolderB` with content
+## 3. Installation and Settings
+Similarly to any other plugins it is downloadable within Obsidian. Then, after enabling it, you will be able to configure Zoottelkeeper in its config interface.
 
-    - **[[fileA]]**
-    - **[[_Index_of_FolderA.md]]**
+![image](https://user-images.githubusercontent.com/46029522/126864195-4a8c7dd6-54ca-435e-a0bf-5a6520083609.png)
 
-   and the content the existing index file in `FolderA` is going to be updated by removing the link of `fileA`:
+### 3.1 Choose your List-Style
+There is three different types of lists for you to choose from:
+	- pure Obsidian links, 
+	- list items (dots)
+	- links with checkboxes
 
-    - **[[_Index_of_FolderA.md]]**
+### 3.2 Choose your Index Prefix
+Depending on your preferences, you can set any prefix to your index-files (or none at all). (Please note that the prefix must be unique, otherwise, normal notes with the same note name might be recognized as index files, and in this cases they will be updated! 
 
-3. If fileA is being deleted from `FolderB` then its link is going to be removed from **_Index_of_FolderB.md**
+### 3.3 Enable Meta Tags
+You can choose to add YAML Meta Tags to your automatically generated index-files.
 
+### 3.4 Set Custom Meta Tags
+You can set one or multiple custom Meta Tags. Since they are displayed in the YAML format, you don't need to add a '#'.
+If you're setting multiple tags please make sure to separate them with commas.
 
-## Install and usage
+### 3.5 Additional Things
+- The file and the folder are no longer listed in the in the index-file.
+	
+---
 
-Similarly to any other plugins it is downloadable within Obsidian. Then, after enabling it, you will be able to configure Zoottelkeeper in its config interface. The following options can be configured:
-
-- **The prefix of the index files**. Please note that it must be unique, othervise, normal notes with the same note name (with the parent folder name at its end, check the example)will be recognized as index files, and in this cases they will be updated! 
-
-- **Style of the index items**. Index items can be generated as
-  - pure Obsidian links, 
-  - list items (dots)
-  - links with checkboxes
-
-
-
-## Tip for Graph view
-
-As the folder links don't point to real notes (because they are folders), to make them visible in the Graph view, please enable the option of viewing orphan notes.
-
-
+**As with every plugin, there is risk of data-loss and I don't give any guarantees or take any responsibility.**
