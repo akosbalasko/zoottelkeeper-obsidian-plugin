@@ -7,8 +7,8 @@ import {
 	Setting,
 	TFile,
 	TAbstractFile,
-} from "obsidian";
-import { IndexItemStyle } from "./IndexItemStyle";
+} from 'obsidian';
+import { IndexItemStyle } from './IndexItemStyle';
 
 interface ZoottelkeeperPluginSettings {
 	indexPrefix: string;
@@ -18,9 +18,9 @@ interface ZoottelkeeperPluginSettings {
 }
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: "_Index_of_",
+	indexPrefix: '_Index_of_',
 	indexItemStyle: IndexItemStyle.PureLink,
-	indexTagValue: "MOC",
+	indexTagValue: 'MOC',
 	indexTagBoolean: true,
 };
 
@@ -45,13 +45,13 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			);
 		});
 		this.registerEvent(
-			this.app.vault.on("create", this.triggerUpdateIndexFile)
+			this.app.vault.on('create', this.triggerUpdateIndexFile)
 		);
 		this.registerEvent(
-			this.app.vault.on("delete", this.triggerUpdateIndexFile)
+			this.app.vault.on('delete', this.triggerUpdateIndexFile)
 		);
 		this.registerEvent(
-			this.app.vault.on("rename", this.triggerUpdateIndexFile)
+			this.app.vault.on('rename', this.triggerUpdateIndexFile)
 		);
 
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
@@ -62,7 +62,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		);
 	}
 	async keepTheZooClean() {
-		console.debug("keeping the zoo clean...");
+		console.debug('keeping the zoo clean...');
 		if (this.lastVault) {
 			const vaultFilePathsSet = new Set(
 				this.app.vault.getMarkdownFiles().map((file) => file.path)
@@ -112,7 +112,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.debug("unloading plugin");
+		console.debug('unloading plugin');
 	}
 
 	async loadSettings() {
@@ -130,7 +130,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	generateIndexContents = async (indexFile: string): Promise<void> => {
 		let indexTFile =
 			this.app.vault.getAbstractFileByPath(indexFile) ||
-			(await this.app.vault.create(indexFile, ""));
+			(await this.app.vault.create(indexFile, ''));
 
 		if (indexTFile && indexTFile instanceof TFile)
 			return this.generateIndexContent(indexTFile);
@@ -142,22 +142,22 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			return acc;
 		}, []);
 		const parentLink = this.getParentFolder(indexTFile.path);
-		if (parentLink && parentLink !== "") {
+		if (parentLink && parentLink !== '') {
 			indexContent.push(this.generateIndexItem(parentLink));
 		}
 		try {
 			if (indexTFile instanceof TFile){
 				if (this.settings.indexTagBoolean === true) {
-					const tag = this.settings.indexTagValue.valueOf();
+					const tag = this.settings.indexTagValue;
 					// if one or multiple index-tags are set, they are inserted at the beginning of the index-array
 					indexContent.unshift(`---\ntags: [${tag}]\n---\n`);
 				}			
-				await this.app.vault.modify(indexTFile, indexContent.join("\n"));
+				await this.app.vault.modify(indexTFile, indexContent.join('\n'));
 			} else {
-				throw new Error("Creation index as folder is not supported");
+				throw new Error('Creation index as folder is not supported');
 			}
 		} catch (e) {
-			console.warn("Error during deletion/creation of index files");
+			console.warn('Error during deletion/creation of index files');
 		}
 	};
 
@@ -179,7 +179,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 		// if its parent does not exits, then its a moved subfolder, so it should not be updated
 		const parentTFolder = this.app.vault.getAbstractFileByPath(parentPath);
-		if (parentPath && parentPath !== "") {
+		if (parentPath && parentPath !== '') {
 			if (!parentTFolder) return undefined;
 			parentPath = `${parentPath}/`;
 		}
@@ -189,29 +189,25 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	};
 
 	getParentFolder = (filePath: string): string => {
-		const fileFolderArray = filePath.split("/");
+		const fileFolderArray = filePath.split('/');
 		fileFolderArray.pop();
 
-		return fileFolderArray.join("/");
+		return fileFolderArray.join('/');
 	};
 
 	getParentFolderName = (filePath: string): string => {
 		const parentFolder = this.getParentFolder(filePath);
-		const fileFolderArray = parentFolder.split("/");
-		return fileFolderArray[0] !== ""
+		const fileFolderArray = parentFolder.split('/');
+		return fileFolderArray[0] !== ''
 			? fileFolderArray[fileFolderArray.length - 1]
 			: this.app.vault.getName();
 	};
 
 	isIndexFile = (file: TAbstractFile): boolean => {
 
-		// the original return was responsible for half the errors (and existed as a bug in OG Zoottelkeeper too)
-		// --> the problem was that the index files didn't update when the prefix was ""
-		// the if statement solves this issue by checking this case and treating it separately
-		if (this.settings.indexPrefix === "")
-			return (file instanceof TFile && file.name === file.parent.name)
-		else
-			return (file instanceof TFile && file.name.startsWith(this.settings.indexPrefix));
+		return this.settings.indexPrefix === ''
+			? file instanceof TFile && file.name === file.parent.name
+			: file instanceof TFile && file.name.startsWith(this.settings.indexPrefix)
 	};
 }
 
@@ -233,21 +229,21 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		let { containerEl } = this;
 
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Zoottelkeeper Settings" });
+		containerEl.createEl('h2', { text: 'Zoottelkeeper Settings' });
 
-		containerEl.createEl("h3", { text: "General Settings" });
+		containerEl.createEl('h3', { text: 'General Settings' });
 
 		new Setting(containerEl)
-			.setName("List Style")
-			.setDesc("Select the style of the index-list.")
+			.setName('List Style')
+			.setDesc('Select the style of the index-list.')
 			.addDropdown(async (dropdown) => {
-				dropdown.addOption(IndexItemStyle.PureLink, "Pure Obsidian link");
-				dropdown.addOption(IndexItemStyle.List, "Listed link");
-				dropdown.addOption(IndexItemStyle.Checkbox, "Checkboxed link");
+				dropdown.addOption(IndexItemStyle.PureLink, 'Pure Obsidian link');
+				dropdown.addOption(IndexItemStyle.List, 'Listed link');
+				dropdown.addOption(IndexItemStyle.Checkbox, 'Checkboxed link');
 
 				dropdown.setValue(this.plugin.settings.indexItemStyle);
 				dropdown.onChange(async (option) => {
-					console.debug("Chosen index item style: " + option);
+					console.debug('Chosen index item style: ' + option);
 					this.plugin.settings.indexItemStyle = option as IndexItemStyle;
 					await this.plugin.saveSettings();
 				});
@@ -255,25 +251,25 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 
 		// index prefix
 		new Setting(containerEl)
-			.setName("Index Prefix")
+			.setName('Index Prefix')
 			.setDesc(
-				"Per default the file is named after your folder, but you can prefix it here."
+				'Per default the file is named after your folder, but you can prefix it here.'
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder("")
+					.setPlaceholder('')
 					.setValue(this.plugin.settings.indexPrefix)
 					.onChange(async (value) => {
-						console.debug("Index prefix: " + value);
+						console.debug('Index prefix: ' + value);
 						this.plugin.settings.indexPrefix = value;
 						await this.plugin.saveSettings();
 					})
 			);
-			containerEl.createEl("h4", { text: "Meta Tags" });
+			containerEl.createEl('h4', { text: 'Meta Tags' });
 
 			// Enabling Meta Tags
 			new Setting(containerEl)
-				.setName("Enable Meta Tags")
+				.setName('Enable Meta Tags')
 				.setDesc(
 					"You can add Meta Tags at the top of your index-file. This is useful when you're using the index files as MOCs."
 				)
@@ -287,13 +283,13 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 	
 			// setting the meta tag value
 			new Setting(containerEl)
-				.setName("Set Meta Tags")
+				.setName('Set Meta Tags')
 				.setDesc(
-					"You can add one or multiple tags to your index-files! There is no need to use '#', just use commas between tags."
+					'You can add one or multiple tags to your index-files! There is no need to use "#", just use commas between tags.'
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("moc")
+						.setPlaceholder('moc')
 						.setValue(this.plugin.settings.indexTagValue)
 						.onChange(async (value) => {
 							this.plugin.settings.indexTagValue = value;

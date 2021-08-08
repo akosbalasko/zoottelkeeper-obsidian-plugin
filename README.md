@@ -12,11 +12,11 @@ ZoottelKeeper watches the followings:
 - _Move_ a file among subfolders
 
 ### 2.1 Introduction
-So, the idea behind AutoMOC (and Zoottelkeeper) is to help you generate the base form of these maps automatically. It does so by indexing all the files and folders that lay in a folder, thus creating a link from the file to all it's content.
+So, the idea behind Zoottelkeeper is to help you generate the base form of these maps automatically. It does so by indexing all the files and folders that lay in a folder, thus creating a link from the file to all it's content.
 
 ![image](https://user-images.githubusercontent.com/46029522/126865703-c3a3d12f-a88f-42d1-806a-415d9e1afa53.png)  -->  ![image](https://user-images.githubusercontent.com/46029522/126865758-883888d3-8cf1-496a-aa04-58ae6a4c69a6.png)  --> ![image](https://user-images.githubusercontent.com/46029522/126865823-84272e62-8f4f-417c-8af1-e624a02963be.png)
 
-**(1)** shows the current folder structure. The plugin (thanks to Zoottelkeepers work!) generates an index-file in each folder, showing all files and folders it contains. An example list **(2)** is shown for the main folder, but the subfolders contain a similar file. Each of these index-files is tagged **(3)** based on your preferences. This then results in the graph view with "folders" **(4)** (it's actually the index-files that are connected, but it looks like folders) and their respective files **(5)**.
+**(1)** shows the current folder structure. The plugin generates an index-file in each folder, showing all files and folders it contains. An example list **(2)** is shown for the main folder, but the subfolders contain a similar file. Each of these index-files is tagged **(3)** based on your preferences. This then results in the graph view with "folders" **(4)** (it's actually the index-files that are connected, but it looks like folders) and their respective files **(5)**.
 
 ### 2.2 What's actually cool about this?
 So far so good, we've seen that before. The actually nice thing is, if I now move *Folder B* into *Folder A* **(6)**, then the index file will automatically update **(7)**, resulting in the desired graph view **(8)**.
@@ -34,28 +34,24 @@ Similarly to any other plugins it is downloadable within Obsidian. Then, after e
 
 ![image](https://user-images.githubusercontent.com/46029522/126864195-4a8c7dd6-54ca-435e-a0bf-5a6520083609.png)
 
-### 3.1 Clean Files
-There is a toggle to clean the indexed files. Depending on whether you would like to see the full file-path or not.
-
-### 3.2 Choose your List-Style
+### 3.1 Choose your List-Style
 There is three different types of lists for you to choose from:
 	- pure Obsidian links, 
 	- list items (dots)
 	- links with checkboxes
 
-### 3.3 Choose your Index Prefix
+### 3.2 Choose your Index Prefix
 Depending on your preferences, you can set any prefix to your index-files (or none at all). (Please note that the prefix must be unique, otherwise, normal notes with the same note name might be recognized as index files, and in this cases they will be updated! 
 
-### 3.4 Enable Meta Tags
+### 3.3 Enable Meta Tags
 You can choose to add YAML Meta Tags to your automatically generated index-files.
 
-### 3.5 Set Custom Meta Tags
+### 3.4 Set Custom Meta Tags
 You can set one or multiple custom Meta Tags. Since they are displayed in the YAML format, you don't need to add a '#'.
 If you're setting multiple tags please make sure to separate them with commas.
 
-### 3.6 Additional Things
-- The indexed files are sorted alphabetically.
-- The file and the folder are no longer listed in the in the index-file. (This currently only works if you toggle 'Clean Files'.)
+### 3.5 Additional Things
+- The file and the folder are no longer listed in the in the index-file.
 	
 ---
 
