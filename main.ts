@@ -1,4 +1,4 @@
-import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
+import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, TFolder, } from 'obsidian';
 import { IndexItemStyle } from './IndexItemStyle';
 
 interface ZoottelkeeperPluginSettings {
@@ -7,6 +7,11 @@ interface ZoottelkeeperPluginSettings {
 
 }
 
+interface GeneralContentOptions {
+	items: Array<TAbstractFile>;
+	initValue: Array<string>;
+	func: Function;
+}
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexPrefix: '' ,
@@ -103,13 +108,46 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			return this.generateIndexContent(indexTFile);
 	}
 
+	
+
+	generateGeneralIndexContent = (options: GeneralContentOptions): Array<string> => {
+		return options.items
+			.reduce(
+				(acc, curr) => {
+					acc.push(options.func(curr.path));
+					return acc;
+				}, options.initValue);
+
+	}
+
 	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
 
 		let indexContent;
 		// get subFolders
-		const subFolders = indexTFile.parent.children.filter(item => !this.isFile(item));
-		const files = indexTFile.parent.children.filter(item => this.isFile(item));
-		indexContent = subFolders
+		//const subFolders = indexTFile.parent.children.filter(item => !this.isFile(item));
+		//const files = indexTFile.parent.children.filter(item => this.isFile(item));
+
+		const splitItems = indexTFile.parent.children.reduce(
+			(acc,curr) => {
+				if (this.isFile(curr))
+					acc['files'].push(curr)
+				else acc['subFolders'].push(curr);
+				return acc;
+			}, {subFolders: [], files: []}
+		)
+
+		indexContent = this.generateGeneralIndexContent({
+			items: splitItems.subFolders,
+			func: this.generateIndexFolderItem,
+			initValue: [],
+		})
+		indexContent = this.generateGeneralIndexContent({
+			items: splitItems.files.filter(file => file.name !== indexTFile.name ),
+			func: this.generateIndexItem,
+			initValue: indexContent,
+		})
+
+		/*indexContent = subFolders
 			.reduce(
 				(acc, curr) => {
 					acc.push(this.generateIndexFolderItem(curr.path));
@@ -123,6 +161,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					acc.push(this.generateIndexItem(curr.path))
 					return acc;
 				}, indexContent);
+		*/
 		const parentLink = this.getParentFolder(indexTFile.path)
 
 		try {
