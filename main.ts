@@ -8,6 +8,12 @@ interface ZoottelkeeperPluginSettings {
 	indexTagBoolean: boolean;
 }
 
+interface GeneralContentOptions {
+	items: Array<TAbstractFile>;
+	initValue: Array<string>;
+	func: Function;
+}
+
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexPrefix: '_Index_of_',
 	indexItemStyle: IndexItemStyle.PureLink,
