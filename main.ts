@@ -1,13 +1,4 @@
-import {
-	App,
-	Modal,
-	debounce,
-	Plugin,
-	PluginSettingTab,
-	Setting,
-	TFile,
-	TAbstractFile,
-} from 'obsidian';
+import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './IndexItemStyle';
 
 interface ZoottelkeeperPluginSettings {
@@ -15,6 +6,12 @@ interface ZoottelkeeperPluginSettings {
 	indexItemStyle: IndexItemStyle;
 	indexTagValue: string;
 	indexTagBoolean: boolean;
+}
+
+interface GeneralContentOptions {
+	items: Array<TAbstractFile>;
+	initValue: Array<string>;
+	func: Function;
 }
 
 const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
@@ -136,15 +133,61 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			return this.generateIndexContent(indexTFile);
 	};
 
+	
+
+	generateGeneralIndexContent = (options: GeneralContentOptions): Array<string> => {
+		return options.items
+			.reduce(
+				(acc, curr) => {
+					acc.push(options.func(curr.path));
+					return acc;
+				}, options.initValue);
+
+	}
+
 	generateIndexContent = async (indexTFile: TFile): Promise<void> => {
-		const indexContent = indexTFile.parent.children.reduce((acc, curr) => {
-			acc.push(this.generateIndexItem(curr.path));
-			return acc;
-		}, []);
-		const parentLink = this.getParentFolder(indexTFile.path);
-		if (parentLink && parentLink !== '') {
-			indexContent.push(this.generateIndexItem(parentLink));
-		}
+
+		let indexContent;
+		// get subFolders
+		//const subFolders = indexTFile.parent.children.filter(item => !this.isFile(item));
+		//const files = indexTFile.parent.children.filter(item => this.isFile(item));
+
+		const splitItems = indexTFile.parent.children.reduce(
+			(acc,curr) => {
+				if (this.isFile(curr))
+					acc['files'].push(curr)
+				else acc['subFolders'].push(curr);
+				return acc;
+			}, {subFolders: [], files: []}
+		)
+
+		indexContent = this.generateGeneralIndexContent({
+			items: splitItems.subFolders,
+			func: this.generateIndexFolderItem,
+			initValue: [],
+		})
+		indexContent = this.generateGeneralIndexContent({
+			items: splitItems.files.filter(file => file.name !== indexTFile.name ),
+			func: this.generateIndexItem,
+			initValue: indexContent,
+		})
+
+		/*indexContent = subFolders
+			.reduce(
+				(acc, curr) => {
+					acc.push(this.generateIndexFolderItem(curr.path));
+					return acc;
+				}, []);
+
+		indexContent = files
+			.filter(file => file.name !== indexTFile.name )
+			.reduce(
+				(acc, curr) => {
+					acc.push(this.generateIndexItem(curr.path))
+					return acc;
+				}, indexContent);
+		*/
+
 		try {
 			if (indexTFile instanceof TFile){
 				if (this.settings.indexTagBoolean === true) {
@@ -168,9 +211,18 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			case IndexItemStyle.List:
 				return `- [[${path}]]`;
 			case IndexItemStyle.Checkbox:
-				return `- [ ] [[${path}]]`;
-		}
-	};
+				return `- [ ] [[${path}]]`
+		};
+	}
+
+	generateIndexFolderItem = (path: string): string => {
+		return this.generateIndexItem(this.getInnerIndexFilePath(path));
+	}
+
+	getInnerIndexFilePath = (folderPath: string): string => {
+		const folderName = this.getFolderName(folderPath);
+		return `${folderPath}/${this.settings.indexPrefix}${folderName}.md`;
+	}
 	getIndexFilePath = (filePath: string): string => {
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
 
@@ -203,12 +255,23 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			: this.app.vault.getName();
 	};
 
-	isIndexFile = (file: TAbstractFile): boolean => {
+	getFolderName = (folderPath: string): string => {
+		const folderArray = folderPath.split('/');
+		return (folderArray[0] !== '') ? folderArray[folderArray.length - 1] : this.app.vault.getName();
+	}
 
-		return this.settings.indexPrefix === ''
-			? file instanceof TFile && file.name === file.parent.name
-			: file instanceof TFile && file.name.startsWith(this.settings.indexPrefix)
-	};
+	isIndexFile = (item: TAbstractFile): boolean => {
+
+		return this.isFile(item)
+			&& (this.settings.indexPrefix === ''
+				? item.name === item.parent.name
+				: item.name.startsWith(this.settings.indexPrefix));
+	}
+
+	isFile = (item: TAbstractFile): boolean => {
+		return item instanceof TFile;
+	}
+
 }
 
 class ZoottelkeeperPluginModal extends Modal {
