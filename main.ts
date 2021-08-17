@@ -6,6 +6,7 @@ interface ZoottelkeeperPluginSettings {
 	indexItemStyle: IndexItemStyle;
 	indexTagValue: string;
 	indexTagBoolean: boolean;
+	cleanPathBoolean: boolean;
 }
 
 interface GeneralContentOptions {
@@ -19,6 +20,7 @@ const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexItemStyle: IndexItemStyle.PureLink,
 	indexTagValue: 'MOC',
 	indexTagBoolean: true,
+	cleanPathBoolean: true,
 };
 
 export default class ZoottelkeeperPlugin extends Plugin {
@@ -204,7 +206,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		}
 	};
 
-	generateIndexItem = (path: string): string => {
+	generateFormattedIndexItem = (path: string): string => {
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
 				return `[[${path}]]`;
@@ -213,6 +215,21 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			case IndexItemStyle.Checkbox:
 				return `- [ ] [[${path}]]`
 		};
+	}
+
+	generateIndexItem = (path: string): string => {
+		let internalFormattedIndex;
+		if (this.settings.cleanPathBoolean) {
+			const cleanPath = ( path.endsWith(".md"))
+				? path.replace(/\.md$/,'')
+				: path;
+			const fileName = cleanPath.split("/").pop();
+			internalFormattedIndex = `${cleanPath}|${fileName}`;		
+		}
+		else {
+			internalFormattedIndex = path;
+		}
+		return this.generateFormattedIndexItem(internalFormattedIndex);
 	}
 
 	generateIndexFolderItem = (path: string): string => {
@@ -295,7 +312,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', { text: 'Zoottelkeeper Settings' });
 
 		containerEl.createEl('h3', { text: 'General Settings' });
-
+		new Setting(containerEl)
+			.setName("Clean Files")
+			.setDesc(
+				"This enables you to only show the files without path and '.md' ending in preview mode."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.cleanPathBoolean);
+				t.onChange(async (v) => {
+					this.plugin.settings.cleanPathBoolean = v;
+					await this.plugin.saveSettings();
+				});
+			});
 		new Setting(containerEl)
 			.setName('List Style')
 			.setDesc('Select the style of the index-list.')
