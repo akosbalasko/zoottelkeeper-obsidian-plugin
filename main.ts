@@ -1,27 +1,8 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
-import { IndexItemStyle } from './IndexItemStyle';
-
-interface ZoottelkeeperPluginSettings {
-	indexPrefix: string;
-	indexItemStyle: IndexItemStyle;
-	indexTagValue: string;
-	indexTagBoolean: boolean;
-	cleanPathBoolean: boolean;
-}
-
-interface GeneralContentOptions {
-	items: Array<TAbstractFile>;
-	initValue: Array<string>;
-	func: Function;
-}
-
-const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: '_Index_of_',
-	indexItemStyle: IndexItemStyle.PureLink,
-	indexTagValue: 'MOC',
-	indexTagBoolean: true,
-	cleanPathBoolean: true,
-};
+import { IndexItemStyle } from './interfaces/IndexItemStyle';
+import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
+import { updateFrontmatter, updateIndexContent, removeFrontmatter } from './utils'
+import { DEFAULT_SETTINGS } from './defaultSettings';
 
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
@@ -101,7 +82,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 				// update index files
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
-					await this.updateIndexContent(indexFile);
+					await this.generateIndexContents(indexFile);
 				}
 			} catch (e) {}
 		}
@@ -121,10 +102,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-
-	updateIndexContent = async (changedFile: string): Promise<void> => {
-		await this.generateIndexContents(changedFile);
-	};
 
 	generateIndexContents = async (indexFile: string): Promise<void> => {
 		let indexTFile =
@@ -174,30 +151,15 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			initValue: indexContent,
 		})
 
-		/*indexContent = subFolders
-			.reduce(
-				(acc, curr) => {
-					acc.push(this.generateIndexFolderItem(curr.path));
-					return acc;
-				}, []);
-
-		indexContent = files
-			.filter(file => file.name !== indexTFile.name )
-			.reduce(
-				(acc, curr) => {
-					acc.push(this.generateIndexItem(curr.path))
-					return acc;
-				}, indexContent);
-		*/
-
 		try {
 			if (indexTFile instanceof TFile){
-				if (this.settings.indexTagBoolean === true) {
-					const tag = this.settings.indexTagValue;
-					// if one or multiple index-tags are set, they are inserted at the beginning of the index-array
-					indexContent.unshift(`---\ntags: [${tag}]\n---\n`);
-				}			
-				await this.app.vault.modify(indexTFile, indexContent.join('\n'));
+
+				let currentContent = await this.app.vault.cachedRead(indexTFile);
+
+				const updatedFrontmatter = await updateFrontmatter(this.settings, currentContent);
+				currentContent = removeFrontmatter(currentContent);
+				const updatedIndexContent = await updateIndexContent(currentContent, indexContent);
+				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
 				throw new Error('Creation index as folder is not supported');
 			}
@@ -387,5 +349,34 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						})
 				);
+			new Setting(containerEl)
+				.setName('Set the tag\'s label in frontmatter')
+				.setDesc(
+					'Please specify the label of the tags in frontmatter (the text before the colon ):'
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder('tags')
+						.setValue(this.plugin.settings.indexTagLabel)
+						.onChange(async (value) => {
+							this.plugin.settings.indexTagLabel = value;
+							await this.plugin.saveSettings();
+						})
+				);
+			new Setting(containerEl)
+				.setName('Set the tag\'s separator in Frontmatter')
+				.setDesc(
+					'Please specify the separator characters that distinguish the tags in Frontmatter:'
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder(', ')
+						.setValue(this.plugin.settings.indexTagSeparator)
+						.onChange(async (value) => {
+							this.plugin.settings.indexTagSeparator = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
 	}
 }
