@@ -78,6 +78,7 @@ Any feedbacks or feature requests are welcome, feel free to [create issues on Zo
 
 If you like the plugin, please let me know by giving a star to it on github: [![GitHub Repo stars](https://img.shields.io/github/stars/akosbalasko/zoottelkeeper-obsidian-plugin?style=social)](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin/stargazers)
 
+or you can <a href="https://www.buymeacoffee.com/akosbalasko" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-yellow.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
 
 ## Disclaimer
