@@ -1,7 +1,7 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
-import { updateFrontmatter, updateIndexContent, removeFrontmatter } from './utils'
+import { updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
 
 export default class ZoottelkeeperPlugin extends Plugin {
@@ -106,7 +106,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	generateIndexContents = async (indexFile: string): Promise<void> => {
 		let indexTFile =
 			this.app.vault.getAbstractFileByPath(indexFile) ||
-			(await this.app.vault.create(indexFile, ''));
+			(await this.app.vault.create(indexFile, '\n'));
 
 		if (indexTFile && indexTFile instanceof TFile)
 			return this.generateIndexContent(indexTFile);
@@ -156,7 +156,10 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
 
-				const updatedFrontmatter = await updateFrontmatter(this.settings, currentContent);
+				const updatedFrontmatter = hasFrontmatter(currentContent)
+				 ? await updateFrontmatter(this.settings, currentContent)
+				 : '';
+
 				currentContent = removeFrontmatter(currentContent);
 				const updatedIndexContent = await updateIndexContent(currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
@@ -164,7 +167,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				throw new Error('Creation index as folder is not supported');
 			}
 		} catch (e) {
-			console.warn('Error during deletion/creation of index files');
+			console.warn('Error during deletion/creation of index files', e);
 		}
 	};
 
@@ -335,10 +338,10 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				});
 	
 			// setting the meta tag value
-			new Setting(containerEl)
+			const metaTagsSetting = new Setting(containerEl)
 				.setName('Set Meta Tags')
 				.setDesc(
-					'You can add one or multiple tags to your index-files! There is no need to use "#", just use commas between tags.'
+					'You can add one or multiple tags to your index-files! There is no need to use "#", just use the exact value of the tags\' separator specified below between the tags.'
 				)
 				.addText((text) =>
 					text
