@@ -380,6 +380,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						})
 				);
+				new Setting(containerEl)
+				.setName('Add square brackets around each tags')
+				.setDesc(
+					"If you enable this, the plugin will put square brackets around the tags set."
+				)
+				.addToggle((t) => {
+					t.setValue(this.plugin.settings.addSquareBrackets);
+					t.onChange(async (v) => {
+						this.plugin.settings.addSquareBrackets = v;
+						await this.plugin.saveSettings();
+					});
+				});
 
 	}
 }
