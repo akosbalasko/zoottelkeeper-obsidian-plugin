@@ -172,13 +172,16 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	};
 
 	generateFormattedIndexItem = (path: string): string => {
+		const realFileName = `${path.split('|')[0]}.md`;
+		const fileAbstrPath = this.app.vault.getAbstractFileByPath(realFileName);
+		const embedSubIndexCharacter = this.settings.embedSubIndex && this.isIndexFile(fileAbstrPath) ? '!' : '';
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
-				return `[[${path}]]`;
+				return `${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.List:
-				return `- [[${path}]]`;
+				return `- ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.Checkbox:
-				return `- [ ] [[${path}]]`
+				return `- [ ] ${embedSubIndexCharacter}[[${path}]]`
 		};
 	}
 
@@ -305,6 +308,19 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				});
 			});
 
+		new Setting(containerEl)
+			.setName('Embed sub-index content in preview')
+			.setDesc(
+				"If you enable this, the plugin will embed the sub-index content in preview mode."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.embedSubIndex);
+				t.onChange(async (v) => {
+					this.plugin.settings.embedSubIndex = v;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		// index prefix
 		new Setting(containerEl)
 			.setName('Index Prefix')
@@ -321,6 +337,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		
 			containerEl.createEl('h4', { text: 'Meta Tags' });
 
 			// Enabling Meta Tags
