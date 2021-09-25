@@ -1,9 +1,8 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
-import { updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
+import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
-
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
 	lastVault: Set<string>;
@@ -66,8 +65,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 				for (const changedFile of Array.from(changedFiles)) {
 					const indexFilePath = this.getIndexFilePath(changedFile);
-					if (indexFilePath) indexFiles2BUpdated.add(indexFilePath);
-
+					if (indexFilePath
+						&& isInAllowedFolder(this.settings, indexFilePath)
+						&& !isInDisAllowedFolder(this.settings, indexFilePath)) {
+						indexFiles2BUpdated.add(indexFilePath);
+					}
 					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
 					const parentIndexFilePath = this.getIndexFilePath(
 						this.getParentFolder(changedFile)
@@ -275,6 +277,36 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Zoottelkeeper Settings' });
+		containerEl.createEl('h3', { text: 'Folder Settings' });
+		
+		new Setting(containerEl)
+			.setName('Folders included')
+			.setDesc(
+				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma. Empty list means all of the vault will be handled except the excluded folders.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.foldersIncluded)
+					.onChange(async (value) => {
+						this.plugin.settings.foldersIncluded = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Folders excluded')
+			.setDesc(
+				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.foldersExcluded)
+					.onChange(async (value) => {
+						this.plugin.settings.foldersExcluded = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		containerEl.createEl('h3', { text: 'General Settings' });
 		new Setting(containerEl)

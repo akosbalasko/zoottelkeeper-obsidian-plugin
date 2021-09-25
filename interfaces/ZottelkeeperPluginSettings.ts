@@ -8,4 +8,8 @@ export interface ZoottelkeeperPluginSettings {
 	indexTagLabel: string;
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
+	foldersIncluded: string;
+	foldersExcluded: string;
+
+	[key: string]: any;
 }
