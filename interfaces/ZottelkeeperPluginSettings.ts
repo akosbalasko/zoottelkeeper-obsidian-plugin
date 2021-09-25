@@ -8,4 +8,7 @@ export interface ZoottelkeeperPluginSettings {
 	indexTagLabel: string;
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
+	folderEmoji: string;
+	fileEmoji: string;
+	enableEmojis: boolean;
 }
