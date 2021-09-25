@@ -8,7 +8,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	lastVault: Set<string>;
 
 	triggerUpdateIndexFile = debounce(
-		this.keepTheZooClean.bind(this),
+		this.keepTheZooClean.bind(this, false),
 		3000,
 		true
 	);
@@ -40,9 +40,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			this.app.vault.getMarkdownFiles().map((file) => file.path)
 		);
 	}
-	async keepTheZooClean() {
+	async keepTheZooClean(triggeredManually?: boolean) {
 		console.debug('keeping the zoo clean...');
-		if (this.lastVault) {
+		if (this.lastVault || triggeredManually) {
 			const vaultFilePathsSet = new Set(
 				this.app.vault.getMarkdownFiles().map((file) => file.path)
 			);
@@ -76,6 +76,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 					);
 					if (parentIndexFilePath) indexFiles2BUpdated.add(parentIndexFilePath);
 				}
+
 				console.debug(
 					`Index files to be updated: ${JSON.stringify(
 						Array.from(indexFiles2BUpdated)
@@ -86,6 +87,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
 					await this.generateIndexContents(indexFile);
 				}
+
+				await this.cleanDisallowedFolders();
 			} catch (e) {}
 		}
 		this.lastVault = new Set(
@@ -224,6 +227,13 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
 	};
 
+	cleanDisallowedFolders = async (): Promise<void> => {
+		for (const folder of this.settings.foldersExcluded.split(',').map(f=> f.trim())){
+			const innerIndex = this.getInnerIndexFilePath(folder);
+			const indexTFile = this.app.vault.getAbstractFileByPath(innerIndex);
+			await this.app.vault.delete(indexTFile);
+		}
+	}
 	getParentFolder = (filePath: string): string => {
 		const fileFolderArray = filePath.split('/');
 		fileFolderArray.pop();
@@ -307,6 +317,20 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		new Setting(containerEl)
+			.setName('Trigger indexing')
+			.setDesc(
+				'By pushing this button you can trigger the indexing on folders match your include/exclude criterias currently set.'
+			)
+			.addButton((btn) => {
+					btn.setButtonText('Generate index now')
+					btn.onClick(async () => {
+						this.plugin.lastVault = new Set();
+						await this.plugin.keepTheZooClean(true);
+					})
+				}
+			);
+
 
 		containerEl.createEl('h3', { text: 'General Settings' });
 		new Setting(containerEl)

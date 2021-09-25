@@ -10,6 +10,6 @@ export const isInDisAllowedFolder = (settings: ZoottelkeeperPluginSettings, inde
 }
 
 export const isInSpecificFolder = (settings: ZoottelkeeperPluginSettings, indexFilePath: string, folderType: string): boolean => {
-    return !!settings[folderType].split(',').find((folder: any) => indexFilePath.startsWith(folder))
+    return !!settings[folderType].split(',').find((folder: any) => indexFilePath.startsWith(folder.trim()))
 }
 
