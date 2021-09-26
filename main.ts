@@ -169,7 +169,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				 : '';
 
 				currentContent = removeFrontmatter(currentContent);
-				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);;
+				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
 				throw new Error('Creation index as folder is not supported');
