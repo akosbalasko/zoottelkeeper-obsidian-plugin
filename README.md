@@ -3,11 +3,12 @@
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/akosbalasko/zoottelkeeper-obsidian-plugin?style=for-the-badge&sort=semver)](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin/releases/latest)
 ![GitHub All Releases](https://img.shields.io/github/downloads/akosbalasko/zoottelkeeper-obsidian-plugin/total?style=for-the-badge)
 
-## What's new in the latest version (v0.16.0)
+## What's new in the latest version (v0.16.1)
 
-Plenty of new features coming requested by you! Namely, from version 0.16.0 you can:
+Plenty of new features coming requested by you! Namely, from version 0.16.1 you can:
 
 - **use sections** ('---' lines) within the index files content, they won't be removed during the content update
+- **square brackets** are optional in tags
 - **embed child index notes** in the preview ('Embed sub-index content in preview' option in the config)
 - **select folders to cover or to be excluded** by the plugin
 - trigger the **indexing manually** (see 'Generate index now' button in the config)
