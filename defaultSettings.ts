@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexTagSeparator: ', ',
 	indexTagLabel: 'tags',
 	cleanPathBoolean: true,
+	foldersExcluded: '',
+	foldersIncluded: '',
 	sortOrder: SortOrder.ASC,
 	addSquareBrackets: true,
 	embedSubIndex: false
