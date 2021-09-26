@@ -1,3 +1,4 @@
+import { SortOrder } from './../models';
 import { IndexItemStyle } from './IndexItemStyle';
 
 export interface ZoottelkeeperPluginSettings {
@@ -8,6 +9,7 @@ export interface ZoottelkeeperPluginSettings {
 	indexTagLabel: string;
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
+	sortOrder: SortOrder;
 	addSquareBrackets: boolean;
 	embedSubIndex: boolean;
 }

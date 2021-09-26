@@ -3,6 +3,7 @@ import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
 import { updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
+import { SortOrder } from 'models';
 
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
@@ -157,11 +158,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
 
 				const updatedFrontmatter = hasFrontmatter(currentContent)
-				 ? await updateFrontmatter(this.settings, currentContent)
+				 ? updateFrontmatter(this.settings, currentContent)
 				 : '';
 
 				currentContent = removeFrontmatter(currentContent);
-				const updatedIndexContent = await updateIndexContent(currentContent, indexContent);
+				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
 				throw new Error('Creation index as folder is not supported');
@@ -289,6 +290,19 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				t.setValue(this.plugin.settings.cleanPathBoolean);
 				t.onChange(async (v) => {
 					this.plugin.settings.cleanPathBoolean = v;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
+			.setName('Index links Order')
+			.setDesc('Select the order of the links to be sorted in the index files.')
+			.addDropdown(async (dropdown) => {
+				dropdown.addOption(SortOrder.ASC, 'Ascending');
+				dropdown.addOption(SortOrder.DESC, 'Descending');
+
+				dropdown.setValue(this.plugin.settings.sortOrder);
+				dropdown.onChange(async (option) => {
+					this.plugin.settings.sortOrder = option as SortOrder;
 					await this.plugin.saveSettings();
 				});
 			});
