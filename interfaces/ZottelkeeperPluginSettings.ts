@@ -8,4 +8,5 @@ export interface ZoottelkeeperPluginSettings {
 	indexTagLabel: string;
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
+	embedSubIndex: boolean;
 }
