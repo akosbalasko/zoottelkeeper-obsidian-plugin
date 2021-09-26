@@ -1,16 +1,17 @@
 import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
-import { updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
+import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
 import * as emoji from 'node-emoji';
+import { SortOrder } from 'models';
 
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
 	lastVault: Set<string>;
 
 	triggerUpdateIndexFile = debounce(
-		this.keepTheZooClean.bind(this),
+		this.keepTheZooClean.bind(this, false),
 		3000,
 		true
 	);
@@ -42,9 +43,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			this.app.vault.getMarkdownFiles().map((file) => file.path)
 		);
 	}
-	async keepTheZooClean() {
+	async keepTheZooClean(triggeredManually?: boolean) {
 		console.debug('keeping the zoo clean...');
-		if (this.lastVault) {
+		if (this.lastVault || triggeredManually) {
 			const vaultFilePathsSet = new Set(
 				this.app.vault.getMarkdownFiles().map((file) => file.path)
 			);
@@ -67,7 +68,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 				for (const changedFile of Array.from(changedFiles)) {
 					const indexFilePath = this.getIndexFilePath(changedFile);
-					if (indexFilePath) indexFiles2BUpdated.add(indexFilePath);
+					if (indexFilePath
+						&& isInAllowedFolder(this.settings, indexFilePath)
+						&& !isInDisAllowedFolder(this.settings, indexFilePath)) {
+						indexFiles2BUpdated.add(indexFilePath);
+					}
 
 					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
 					const parentIndexFilePath = this.getIndexFilePath(
@@ -85,6 +90,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
 					await this.generateIndexContents(indexFile);
 				}
+
+				await this.cleanDisallowedFolders();
 			} catch (e) {}
 		}
 		this.lastVault = new Set(
@@ -158,11 +165,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
 
 				const updatedFrontmatter = hasFrontmatter(currentContent)
-				 ? await updateFrontmatter(this.settings, currentContent)
+				 ? updateFrontmatter(this.settings, currentContent)
 				 : '';
 
 				currentContent = removeFrontmatter(currentContent);
-				const updatedIndexContent = await updateIndexContent(currentContent, indexContent);
+				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);;
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
 				throw new Error('Creation index as folder is not supported');
@@ -179,15 +186,19 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			: '';
 
 	}
+
 	generateFormattedIndexItem = (path: string, isFile: boolean): string => {
+		const realFileName = `${path.split('|')[0]}.md`;
+		const fileAbstrPath = this.app.vault.getAbstractFileByPath(realFileName);
+		const embedSubIndexCharacter = this.settings.embedSubIndex && this.isIndexFile(fileAbstrPath) ? '!' : '';
 		
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
-				return `${this.setEmojiPrefix(isFile)}[[${path}]]`;
+				return `${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.List:
-				return `- ${this.setEmojiPrefix(isFile)}[[${path}]]`;
+				return `- ${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.Checkbox:
-				return `- [ ] ${this.setEmojiPrefix(isFile)}[[${path}]]`
+				return `- [ ] ${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`
 		};
 	}
 
@@ -231,6 +242,13 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
 	};
 
+	cleanDisallowedFolders = async (): Promise<void> => {
+		for (const folder of this.settings.foldersExcluded.split(',').map(f=> f.trim())){
+			const innerIndex = this.getInnerIndexFilePath(folder);
+			const indexTFile = this.app.vault.getAbstractFileByPath(innerIndex);
+			await this.app.vault.delete(indexTFile);
+		}
+	}
 	getParentFolder = (filePath: string): string => {
 		const fileFolderArray = filePath.split('/');
 		fileFolderArray.pop();
@@ -284,6 +302,50 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Zoottelkeeper Settings' });
+		containerEl.createEl('h3', { text: 'Folder Settings' });
+		
+		new Setting(containerEl)
+			.setName('Folders included')
+			.setDesc(
+				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma. Empty list means all of the vault will be handled except the excluded folders.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.foldersIncluded)
+					.onChange(async (value) => {
+						this.plugin.settings.foldersIncluded = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Folders excluded')
+			.setDesc(
+				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.foldersExcluded)
+					.onChange(async (value) => {
+						this.plugin.settings.foldersExcluded = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Trigger indexing')
+			.setDesc(
+				'By pushing this button you can trigger the indexing on folders match your include/exclude criterias currently set.'
+			)
+			.addButton((btn) => {
+					btn.setButtonText('Generate index now')
+					btn.onClick(async () => {
+						this.plugin.lastVault = new Set();
+						await this.plugin.keepTheZooClean(true);
+					})
+				}
+			);
+
 
 		containerEl.createEl('h3', { text: 'General Settings' });
 		new Setting(containerEl)
@@ -299,6 +361,19 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				});
 			});
 		new Setting(containerEl)
+			.setName('Index links Order')
+			.setDesc('Select the order of the links to be sorted in the index files.')
+			.addDropdown(async (dropdown) => {
+				dropdown.addOption(SortOrder.ASC, 'Ascending');
+				dropdown.addOption(SortOrder.DESC, 'Descending');
+
+				dropdown.setValue(this.plugin.settings.sortOrder);
+				dropdown.onChange(async (option) => {
+					this.plugin.settings.sortOrder = option as SortOrder;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
 			.setName('List Style')
 			.setDesc('Select the style of the index-list.')
 			.addDropdown(async (dropdown) => {
@@ -310,6 +385,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				dropdown.onChange(async (option) => {
 					console.debug('Chosen index item style: ' + option);
 					this.plugin.settings.indexItemStyle = option as IndexItemStyle;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
+			.setName('Embed sub-index content in preview')
+			.setDesc(
+				"If you enable this, the plugin will embed the sub-index content in preview mode."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.embedSubIndex);
+				t.onChange(async (v) => {
+					this.plugin.settings.embedSubIndex = v;
 					await this.plugin.saveSettings();
 				});
 			});
@@ -389,6 +476,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						})
 				);
+			new Setting(containerEl)
+				.setName('Add square brackets around each tags')
+				.setDesc(
+					"If you enable this, the plugin will put square brackets around the tags set."
+				)
+				.addToggle((t) => {
+					t.setValue(this.plugin.settings.addSquareBrackets);
+					t.onChange(async (v) => {
+						this.plugin.settings.addSquareBrackets = v;
+						await this.plugin.saveSettings();
+					});
+				});
 				containerEl.createEl('h4', { text: 'Emojis' });
 
 				// Enabling Meta Tags

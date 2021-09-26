@@ -1,3 +1,4 @@
+import { SortOrder } from './../models';
 import { IndexItemStyle } from './IndexItemStyle';
 
 export interface ZoottelkeeperPluginSettings {
@@ -11,4 +12,11 @@ export interface ZoottelkeeperPluginSettings {
 	folderEmoji: string;
 	fileEmoji: string;
 	enableEmojis: boolean;
+	foldersIncluded: string;
+	foldersExcluded: string;
+  	sortOrder: SortOrder;
+	addSquareBrackets: boolean;
+	embedSubIndex: boolean;
+    [key: string]: any;
+
 }

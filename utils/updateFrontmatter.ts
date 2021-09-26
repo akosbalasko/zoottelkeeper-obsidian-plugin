@@ -21,8 +21,8 @@ export const updateFrontmatter = (settings: ZoottelkeeperPluginSettings, current
 
         const taglist = tagLine.split(':')[1];
         const indexTags = settings.indexTagSeparator
-            ? settings.indexTagValue.split(settings.indexTagSeparator).map(tag => `[${tag}]`)
-            : [`[${settings.indexTagValue}]`];
+            ? settings.indexTagValue.split(settings.indexTagSeparator).map(tag => settings.addSquareBrackets ? `[${tag}]`: tag)
+            : [ settings.addSquareBrackets ? `[${settings.indexTagValue}]`: settings.indexTagValue];
         let updatedTaglist = taglist;
         for (const indexTag of indexTags) {
             if (!taglist.includes(indexTag)) {

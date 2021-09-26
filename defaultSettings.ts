@@ -1,3 +1,4 @@
+import { SortOrder } from 'models';
 import { IndexItemStyle, ZoottelkeeperPluginSettings } from './interfaces'
 
 export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
@@ -11,4 +12,9 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	folderEmoji: ':card_index_dividers:',
 	fileEmoji: ':page_facing_up:',
 	enableEmojis: false,
+	foldersExcluded: '',
+	foldersIncluded: '',
+	sortOrder: SortOrder.ASC,
+	addSquareBrackets: true,
+	embedSubIndex: false
 };
