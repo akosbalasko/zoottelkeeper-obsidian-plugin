@@ -8,5 +8,6 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexTagSeparator: ', ',
 	indexTagLabel: 'tags',
 	cleanPathBoolean: true,
-	embedSubIndex: false,
+	addSquareBrackets: true,
+	embedSubIndex: false
 };
