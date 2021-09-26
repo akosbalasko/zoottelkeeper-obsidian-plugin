@@ -1,3 +1,4 @@
+import { SortOrder } from 'models';
 import { IndexItemStyle, ZoottelkeeperPluginSettings } from './interfaces'
 
 export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
@@ -9,5 +10,8 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexTagLabel: 'tags',
 	cleanPathBoolean: true,
 	foldersExcluded: '',
-	foldersIncluded: ''
+	foldersIncluded: '',
+	sortOrder: SortOrder.ASC,
+	addSquareBrackets: true,
+	embedSubIndex: false
 };

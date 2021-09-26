@@ -3,6 +3,8 @@ import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
 import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
+import { SortOrder } from 'models';
+
 export default class ZoottelkeeperPlugin extends Plugin {
 	settings: ZoottelkeeperPluginSettings;
 	lastVault: Set<string>;
@@ -162,11 +164,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
 
 				const updatedFrontmatter = hasFrontmatter(currentContent)
-				 ? await updateFrontmatter(this.settings, currentContent)
+				 ? updateFrontmatter(this.settings, currentContent)
 				 : '';
 
 				currentContent = removeFrontmatter(currentContent);
-				const updatedIndexContent = await updateIndexContent(currentContent, indexContent);
+				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
 				throw new Error('Creation index as folder is not supported');
@@ -177,13 +179,16 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	};
 
 	generateFormattedIndexItem = (path: string): string => {
+		const realFileName = `${path.split('|')[0]}.md`;
+		const fileAbstrPath = this.app.vault.getAbstractFileByPath(realFileName);
+		const embedSubIndexCharacter = this.settings.embedSubIndex && this.isIndexFile(fileAbstrPath) ? '!' : '';
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
-				return `[[${path}]]`;
+				return `${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.List:
-				return `- [[${path}]]`;
+				return `- ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.Checkbox:
-				return `- [ ] [[${path}]]`
+				return `- [ ] ${embedSubIndexCharacter}[[${path}]]`
 		};
 	}
 
@@ -346,6 +351,19 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				});
 			});
 		new Setting(containerEl)
+			.setName('Index links Order')
+			.setDesc('Select the order of the links to be sorted in the index files.')
+			.addDropdown(async (dropdown) => {
+				dropdown.addOption(SortOrder.ASC, 'Ascending');
+				dropdown.addOption(SortOrder.DESC, 'Descending');
+
+				dropdown.setValue(this.plugin.settings.sortOrder);
+				dropdown.onChange(async (option) => {
+					this.plugin.settings.sortOrder = option as SortOrder;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
 			.setName('List Style')
 			.setDesc('Select the style of the index-list.')
 			.addDropdown(async (dropdown) => {
@@ -357,6 +375,19 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				dropdown.onChange(async (option) => {
 					console.debug('Chosen index item style: ' + option);
 					this.plugin.settings.indexItemStyle = option as IndexItemStyle;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName('Embed sub-index content in preview')
+			.setDesc(
+				"If you enable this, the plugin will embed the sub-index content in preview mode."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.embedSubIndex);
+				t.onChange(async (v) => {
+					this.plugin.settings.embedSubIndex = v;
 					await this.plugin.saveSettings();
 				});
 			});
@@ -377,6 +408,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		
 			containerEl.createEl('h4', { text: 'Meta Tags' });
 
 			// Enabling Meta Tags
@@ -436,6 +468,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						})
 				);
+				new Setting(containerEl)
+				.setName('Add square brackets around each tags')
+				.setDesc(
+					"If you enable this, the plugin will put square brackets around the tags set."
+				)
+				.addToggle((t) => {
+					t.setValue(this.plugin.settings.addSquareBrackets);
+					t.onChange(async (v) => {
+						this.plugin.settings.addSquareBrackets = v;
+						await this.plugin.saveSettings();
+					});
+				});
 
 	}
 }
