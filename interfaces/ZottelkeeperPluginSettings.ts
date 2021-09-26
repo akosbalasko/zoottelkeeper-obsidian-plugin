@@ -9,4 +9,5 @@ export interface ZoottelkeeperPluginSettings {
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
 	addSquareBrackets: boolean;
+	embedSubIndex: boolean;
 }
