@@ -3,6 +3,7 @@ import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
 import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
+import * as emoji from 'node-emoji';
 import { SortOrder } from 'models';
 
 export default class ZoottelkeeperPlugin extends Plugin {
@@ -72,13 +73,13 @@ export default class ZoottelkeeperPlugin extends Plugin {
 						&& !isInDisAllowedFolder(this.settings, indexFilePath)) {
 						indexFiles2BUpdated.add(indexFilePath);
 					}
+
 					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
 					const parentIndexFilePath = this.getIndexFilePath(
 						this.getParentFolder(changedFile)
 					);
 					if (parentIndexFilePath) indexFiles2BUpdated.add(parentIndexFilePath);
 				}
-
 				console.debug(
 					`Index files to be updated: ${JSON.stringify(
 						Array.from(indexFiles2BUpdated)
@@ -125,7 +126,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return options.items
 			.reduce(
 				(acc, curr) => {
-					acc.push(options.func(curr.path));
+					acc.push(options.func(curr.path, this.isFile(curr)));
 					return acc;
 				}, options.initValue);
 
@@ -177,22 +178,31 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			console.warn('Error during deletion/creation of index files', e);
 		}
 	};
+	setEmojiPrefix = (isFile: boolean): string => {
+		return this.settings.enableEmojis 
+			? isFile
+				? emoji.get(this.settings.fileEmoji)
+				: emoji.get(this.settings.folderEmoji)
+			: '';
 
-	generateFormattedIndexItem = (path: string): string => {
+	}
+
+	generateFormattedIndexItem = (path: string, isFile: boolean): string => {
 		const realFileName = `${path.split('|')[0]}.md`;
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(realFileName);
 		const embedSubIndexCharacter = this.settings.embedSubIndex && this.isIndexFile(fileAbstrPath) ? '!' : '';
+		
 		switch (this.settings.indexItemStyle) {
 			case IndexItemStyle.PureLink:
-				return `${embedSubIndexCharacter}[[${path}]]`;
+				return `${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.List:
-				return `- ${embedSubIndexCharacter}[[${path}]]`;
+				return `- ${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`;
 			case IndexItemStyle.Checkbox:
-				return `- [ ] ${embedSubIndexCharacter}[[${path}]]`
+				return `- [ ] ${this.setEmojiPrefix(isFile)} ${embedSubIndexCharacter}[[${path}]]`
 		};
 	}
 
-	generateIndexItem = (path: string): string => {
+	generateIndexItem = (path: string, isFile: boolean): string => {
 		let internalFormattedIndex;
 		if (this.settings.cleanPathBoolean) {
 			const cleanPath = ( path.endsWith(".md"))
@@ -204,11 +214,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		else {
 			internalFormattedIndex = path;
 		}
-		return this.generateFormattedIndexItem(internalFormattedIndex);
+		return this.generateFormattedIndexItem(internalFormattedIndex, isFile);
 	}
 
-	generateIndexFolderItem = (path: string): string => {
-		return this.generateIndexItem(this.getInnerIndexFilePath(path));
+	generateIndexFolderItem = (path: string, isFile: boolean): string => {
+		return this.generateIndexItem(this.getInnerIndexFilePath(path), isFile);
 	}
 
 	getInnerIndexFilePath = (folderPath: string): string => {
@@ -378,7 +388,6 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
-
 		new Setting(containerEl)
 			.setName('Embed sub-index content in preview')
 			.setDesc(
@@ -408,7 +417,6 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-		
 			containerEl.createEl('h4', { text: 'Meta Tags' });
 
 			// Enabling Meta Tags
@@ -468,7 +476,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 						})
 				);
-				new Setting(containerEl)
+			new Setting(containerEl)
 				.setName('Add square brackets around each tags')
 				.setDesc(
 					"If you enable this, the plugin will put square brackets around the tags set."
@@ -480,6 +488,74 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				});
+				containerEl.createEl('h4', { text: 'Emojis' });
 
+				// Enabling Meta Tags
+				new Setting(containerEl)
+					.setName('Enable Emojis')
+					.setDesc("You can set an emoji at the beginning of each index item depending on its type (file or folder). If multiple emojis matches, the first one will be stored."
+					)
+					.addToggle((t) => {
+						t.setValue(this.plugin.settings.enableEmojis);
+						t.onChange(async (v) => {
+							this.plugin.settings.enableEmojis = v;
+							await this.plugin.saveSettings();
+						});
+					});
+		
+
+				let emojiFolderDesc = 'Set an emoji for folders:'
+				if (this.plugin.settings.folderEmoji){
+					const setFolderEmoji = emoji.search(this.plugin.settings.folderEmoji);
+					emojiFolderDesc = `Matching Options:${setFolderEmoji[0].emoji} (${setFolderEmoji[0].key})`;
+				}
+				const emojiForFoldersSetting = new Setting(containerEl)
+					.setName('Emojis')
+					.setDesc(emojiFolderDesc)
+					.addText((text) =>
+						text.setPlaceholder('card_index_dividers')
+							.setValue(this.plugin.settings.folderEmoji.replace(/:/g, ''))
+							.onChange(async (value) => {
+								if (value !== ''){
+									const emojiOptions = emoji.search(value);
+									emojiForFoldersSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
+									if (emojiOptions.length > 0){
+										this.plugin.settings.folderEmoji = `:${emojiOptions[0].key}:`;
+										await this.plugin.saveSettings();
+									}
+								} else {
+									emojiForFoldersSetting.setDesc(
+										'Set an emoji for folders:'
+									)
+								}
+						}));
+					let emojiFileDesc = 'Set an emoji for files:'
+					if (this.plugin.settings.fileEmoji){
+						const setFileEmoji = emoji.search(this.plugin.settings.fileEmoji);
+						emojiFileDesc = `Matching Options:${setFileEmoji[0].emoji} (${setFileEmoji[0].key})`;
+					}
+					 
+					const emojiForFilesSetting = new Setting(containerEl)
+						.setName('Emojis')
+						.setDesc(emojiFileDesc)
+						.addText((text) =>
+							text.setPlaceholder('page_facing_up')
+								.setValue(this.plugin.settings.fileEmoji.replace(/:/g, ''))
+								.onChange(async (value) => {
+									if (value !== ''){
+										const emojiOptions = emoji.search(value);
+										emojiForFilesSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
+										if (emojiOptions.length > 0){
+											this.plugin.settings.fileEmoji = `:${emojiOptions[0].key}:`;
+											await this.plugin.saveSettings();
+										}
+									} else {
+										emojiForFilesSetting.setDesc(
+											'Set an emoji for files:'
+										)
+									}
+							})
+				);
+				
 	}
 }
