@@ -10,4 +10,6 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	indexTagLabel: 'tags',
 	cleanPathBoolean: true,
 	sortOrder: SortOrder.ASC,
+	addSquareBrackets: true,
+	embedSubIndex: false
 };

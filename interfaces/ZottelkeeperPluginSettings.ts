@@ -10,4 +10,6 @@ export interface ZoottelkeeperPluginSettings {
 	cleanPathBoolean: boolean;
 	indexTagSeparator: string;
 	sortOrder: SortOrder;
+	addSquareBrackets: boolean;
+	embedSubIndex: boolean;
 }
