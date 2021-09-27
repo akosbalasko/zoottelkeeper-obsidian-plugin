@@ -19,11 +19,14 @@ export const updateFrontmatter = (settings: ZoottelkeeperPluginSettings, current
             currentFrontmatterWithoutSep = `${currentFrontmatterWithoutSep}\n${tagLine}\n`;
         }
 
-        const taglist = tagLine.split(':')[1];
+        const taglist = tagLine.split(':')[1].trim();
         const indexTags = settings.indexTagSeparator
-            ? settings.indexTagValue.split(settings.indexTagSeparator).map(tag => settings.addSquareBrackets ? `[${tag}]`: tag)
-            : [ settings.addSquareBrackets ? `[${settings.indexTagValue}]`: settings.indexTagValue];
-        let updatedTaglist = taglist;
+            ? settings.indexTagValue.split(settings.indexTagSeparator) 
+            : [settings.indexTagValue];
+
+        let updatedTaglist = !settings.addSquareBrackets
+            ? taglist.replace(/\[|\]/g,'')
+            : taglist;
         for (const indexTag of indexTags) {
             if (!taglist.includes(indexTag)) {
                 updatedTaglist =  !settings.indexTagSeparator 
@@ -33,7 +36,9 @@ export const updateFrontmatter = (settings: ZoottelkeeperPluginSettings, current
                     : indexTag;
             }
         }
-        const updatedTagLine = `tags:${updatedTaglist}`;
+        if (settings.addSquareBrackets)
+            updatedTaglist = `[${updatedTaglist}]`;
+        const updatedTagLine = `tags: ${updatedTaglist}`;
         const regex = new RegExp(tagLine.replace(/\[/g,'\\[').replace(/\]/g,'\\]'), 'g');
 
         return settings.indexTagBoolean
