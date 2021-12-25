@@ -16,5 +16,6 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	foldersIncluded: '',
 	sortOrder: SortOrder.ASC,
 	addSquareBrackets: true,
-	embedSubIndex: false
+	embedSubIndex: false,
+	templateFile: '',
 };
