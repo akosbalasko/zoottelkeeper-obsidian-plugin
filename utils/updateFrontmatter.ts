@@ -1,4 +1,3 @@
-import { FRONTMATTER_SEPARATOR } from '../consts';
 import { ZoottelkeeperPluginSettings } from '../interfaces';
 import { getFrontmatter } from './getFrontmatter'; 
 
@@ -6,9 +5,9 @@ export const updateFrontmatter = (settings: ZoottelkeeperPluginSettings, current
 
 
     if (!settings.indexTagBoolean)
-        return getFrontmatter(currentContent);
+        return getFrontmatter(currentContent, settings.frontMatterSeparator);
     
-    let currentFrontmatterWithoutSep = `${currentContent.split(FRONTMATTER_SEPARATOR)[1]}`;
+    let currentFrontmatterWithoutSep = `${currentContent.split(settings.frontMatterSeparator)[1]}`;
     
     if (currentFrontmatterWithoutSep === '')
         return ''
@@ -40,7 +39,7 @@ export const updateFrontmatter = (settings: ZoottelkeeperPluginSettings, current
         const regex = new RegExp(tagLine.replace(/\[/g,'\\[').replace(/\]/g,'\\]'), 'g');
 
         return settings.indexTagBoolean
-            ? `${FRONTMATTER_SEPARATOR}${currentFrontmatterWithoutSep.replace(regex,updatedTagLine )}${FRONTMATTER_SEPARATOR}`
-            : `${FRONTMATTER_SEPARATOR}${currentFrontmatterWithoutSep}${FRONTMATTER_SEPARATOR}`;
+            ? `${settings.frontMatterSeparator}${currentFrontmatterWithoutSep.replace(regex,updatedTagLine )}${settings.frontMatterSeparator}`
+            : `${settings.frontMatterSeparator}${currentFrontmatterWithoutSep}${settings.frontMatterSeparator}`;
     }
 }

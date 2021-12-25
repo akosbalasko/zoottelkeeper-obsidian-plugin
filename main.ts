@@ -177,11 +177,11 @@ export default class ZoottelkeeperPlugin extends Plugin {
 						currentContent = await this.app.vault.cachedRead(templateFile);
 					}	
 				}
-				const updatedFrontmatter = hasFrontmatter(currentContent)
+				const updatedFrontmatter = hasFrontmatter(currentContent, this.settings.frontMatterSeparator)
 				 ? updateFrontmatter(this.settings, currentContent)
 				 : '';
 
-				currentContent = removeFrontmatter(currentContent);
+				currentContent = removeFrontmatter(currentContent, this.settings.frontMatterSeparator);
 				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
@@ -386,6 +386,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
 		new Setting(containerEl)
 			.setName('List Style')
 			.setDesc('Select the style of the index-list.')
@@ -430,7 +431,6 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-		// index prefix
 		new Setting(containerEl)
 			.setName('Template file')
 			.setDesc(
@@ -443,6 +443,18 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						console.debug('Template file: ' + value);
 						this.plugin.settings.templateFile = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Frontmatter separator')
+			.setDesc('It specifies the separator string generated before and after the frontmatter, by default its ---')
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.frontMatterSeparator)
+					.onChange(async (value) => {
+						this.plugin.settings.frontMatterSeparator = value;
 						await this.plugin.saveSettings();
 					})
 			);

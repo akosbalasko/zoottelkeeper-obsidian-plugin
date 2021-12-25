@@ -1,6 +1,5 @@
 
-import { FRONTMATTER_SEPARATOR } from '../consts';
 
-export const hasFrontmatter = (content: string): boolean => {
-    return (content.trim().startsWith(FRONTMATTER_SEPARATOR) && content.split(FRONTMATTER_SEPARATOR).length > 1);
+export const hasFrontmatter = (content: string, separator: string): boolean => {
+    return (content.trim().startsWith(separator) && content.split(separator).length > 1);
 }

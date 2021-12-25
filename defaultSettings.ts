@@ -18,4 +18,5 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	addSquareBrackets: true,
 	embedSubIndex: false,
 	templateFile: '',
+	frontMatterSeparator: '---',
 };
