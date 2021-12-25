@@ -5,6 +5,7 @@
 
 ## What's new in the latest version (v0.17.0)
 - Option to set a **template** for index files 
+- Numbers sorted correctly in index links (bug: https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin/issues/45)
 ## What's new in the latest version (v0.16.1)
 
 Plenty of new features coming requested by you! Namely, from version 0.16.1 you can:
