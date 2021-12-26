@@ -95,13 +95,19 @@ If you're setting multiple tags please make sure to separate them with commas.
 2. In the Templater's settings page:
 
    1. Set a template folder
-   2. Set Templater to be triggered on file creation
+   2. Create a template file (based on the example below) and assign it to your folder handled by Zottelkeeper
+   3. Set Templater to be triggered on file creation
 
 3. In Zoottelkeeper's settings page, specify the full path of your template location like 'templates/zoottel_template.md'. The template can be managed by the **Templater** plugin.
 
 In order to prevent the generalization of the Zoottelkeeper's metadata in the real files created, please use the following template as a base, which puts Zoottelkeepers placeholders only if the filename ends with the parent folder's name (so it's an index file/ folder note): 
 
 ```markdown
+---
+
+tags: 
+
+---
 
 <%* if (tp.file.title.endsWith(tp.file.folder())) { %>
 
@@ -111,6 +117,7 @@ In order to prevent the generalization of the Zoottelkeeper's metadata in the re
 <%* } %>
 
 ```
+
 ## Release notes
 
 ## Appreciation and feedbacks
