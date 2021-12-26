@@ -112,9 +112,16 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	generateIndexContents = async (indexFile: string): Promise<void> => {
+		const templateFile = this.app.vault.getAbstractFileByPath(this.settings.templateFile);
+		let currentTemplateContent = '';
+
+		if (templateFile instanceof TFile){
+			currentTemplateContent = await this.app.vault.cachedRead(templateFile);
+		}	
+		
 		let indexTFile =
 			this.app.vault.getAbstractFileByPath(indexFile) ||
-			(await this.app.vault.create(indexFile, '\n'));
+			(await this.app.vault.create(indexFile, currentTemplateContent));
 
 		if (indexTFile && indexTFile instanceof TFile)
 			return this.generateIndexContent(indexTFile);
@@ -163,12 +170,18 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			if (indexTFile instanceof TFile){
 
 				let currentContent = await this.app.vault.cachedRead(indexTFile);
-
-				const updatedFrontmatter = hasFrontmatter(currentContent)
+				if (currentContent === ''){
+					const templateFile = this.app.vault.getAbstractFileByPath(this.settings.templateFile);
+			
+					if (templateFile instanceof TFile){
+						currentContent = await this.app.vault.cachedRead(templateFile);
+					}	
+				}
+				const updatedFrontmatter = hasFrontmatter(currentContent, this.settings.frontMatterSeparator)
 				 ? updateFrontmatter(this.settings, currentContent)
 				 : '';
 
-				currentContent = removeFrontmatter(currentContent);
+				currentContent = removeFrontmatter(currentContent, this.settings.frontMatterSeparator);
 				const updatedIndexContent = updateIndexContent(this.settings.sortOrder, currentContent, indexContent);
 				await this.app.vault.modify(indexTFile, `${updatedFrontmatter}${updatedIndexContent}`);
 			} else {
@@ -373,6 +386,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
 		new Setting(containerEl)
 			.setName('List Style')
 			.setDesc('Select the style of the index-list.')
@@ -417,145 +431,172 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-			containerEl.createEl('h4', { text: 'Meta Tags' });
+		new Setting(containerEl)
+			.setName('Template file')
+			.setDesc(
+				'Set your template file\'s absolute path like "templates/zoottel_template.md"'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.templateFile)
+					.onChange(async (value) => {
+						console.debug('Template file: ' + value);
+						this.plugin.settings.templateFile = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Frontmatter separator')
+			.setDesc('It specifies the separator string generated before and after the frontmatter, by default its ---')
+			.addText((text) =>
+				text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.frontMatterSeparator)
+					.onChange(async (value) => {
+						this.plugin.settings.frontMatterSeparator = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		containerEl.createEl('h4', { text: 'Meta Tags' });
+
+		// Enabling Meta Tags
+		new Setting(containerEl)
+			.setName('Enable Meta Tags')
+			.setDesc(
+				"You can add Meta Tags at the top of your index-file. This is useful when you're using the index files as MOCs."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.indexTagBoolean);
+				t.onChange(async (v) => {
+					this.plugin.settings.indexTagBoolean = v;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		// setting the meta tag value
+		const metaTagsSetting = new Setting(containerEl)
+			.setName('Set Meta Tags')
+			.setDesc(
+				'You can add one or multiple tags to your index-files! There is no need to use "#", just use the exact value of the tags\' separator specified below between the tags.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('moc')
+					.setValue(this.plugin.settings.indexTagValue)
+					.onChange(async (value) => {
+						this.plugin.settings.indexTagValue = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Set the tag\'s label in frontmatter')
+			.setDesc(
+				'Please specify the label of the tags in frontmatter (the text before the colon ):'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('tags')
+					.setValue(this.plugin.settings.indexTagLabel)
+					.onChange(async (value) => {
+						this.plugin.settings.indexTagLabel = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Set the tag\'s separator in Frontmatter')
+			.setDesc(
+				'Please specify the separator characters that distinguish the tags in Frontmatter:'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder(', ')
+					.setValue(this.plugin.settings.indexTagSeparator)
+					.onChange(async (value) => {
+						this.plugin.settings.indexTagSeparator = value;
+						await this.plugin.saveSettings();
+					})
+			);
+		new Setting(containerEl)
+			.setName('Add square brackets around each tags')
+			.setDesc(
+				"If you enable this, the plugin will put square brackets around the tags set."
+			)
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.addSquareBrackets);
+				t.onChange(async (v) => {
+					this.plugin.settings.addSquareBrackets = v;
+					await this.plugin.saveSettings();
+				});
+			});
+			containerEl.createEl('h4', { text: 'Emojis' });
 
 			// Enabling Meta Tags
 			new Setting(containerEl)
-				.setName('Enable Meta Tags')
-				.setDesc(
-					"You can add Meta Tags at the top of your index-file. This is useful when you're using the index files as MOCs."
+				.setName('Enable Emojis')
+				.setDesc("You can set an emoji at the beginning of each index item depending on its type (file or folder). If multiple emojis matches, the first one will be stored."
 				)
 				.addToggle((t) => {
-					t.setValue(this.plugin.settings.indexTagBoolean);
+					t.setValue(this.plugin.settings.enableEmojis);
 					t.onChange(async (v) => {
-						this.plugin.settings.indexTagBoolean = v;
+						this.plugin.settings.enableEmojis = v;
 						await this.plugin.saveSettings();
 					});
 				});
-	
-			// setting the meta tag value
-			const metaTagsSetting = new Setting(containerEl)
-				.setName('Set Meta Tags')
-				.setDesc(
-					'You can add one or multiple tags to your index-files! There is no need to use "#", just use the exact value of the tags\' separator specified below between the tags.'
-				)
-				.addText((text) =>
-					text
-						.setPlaceholder('moc')
-						.setValue(this.plugin.settings.indexTagValue)
-						.onChange(async (value) => {
-							this.plugin.settings.indexTagValue = value;
-							await this.plugin.saveSettings();
-						})
-				);
-			new Setting(containerEl)
-				.setName('Set the tag\'s label in frontmatter')
-				.setDesc(
-					'Please specify the label of the tags in frontmatter (the text before the colon ):'
-				)
-				.addText((text) =>
-					text
-						.setPlaceholder('tags')
-						.setValue(this.plugin.settings.indexTagLabel)
-						.onChange(async (value) => {
-							this.plugin.settings.indexTagLabel = value;
-							await this.plugin.saveSettings();
-						})
-				);
-			new Setting(containerEl)
-				.setName('Set the tag\'s separator in Frontmatter')
-				.setDesc(
-					'Please specify the separator characters that distinguish the tags in Frontmatter:'
-				)
-				.addText((text) =>
-					text
-						.setPlaceholder(', ')
-						.setValue(this.plugin.settings.indexTagSeparator)
-						.onChange(async (value) => {
-							this.plugin.settings.indexTagSeparator = value;
-							await this.plugin.saveSettings();
-						})
-				);
-			new Setting(containerEl)
-				.setName('Add square brackets around each tags')
-				.setDesc(
-					"If you enable this, the plugin will put square brackets around the tags set."
-				)
-				.addToggle((t) => {
-					t.setValue(this.plugin.settings.addSquareBrackets);
-					t.onChange(async (v) => {
-						this.plugin.settings.addSquareBrackets = v;
-						await this.plugin.saveSettings();
-					});
-				});
-				containerEl.createEl('h4', { text: 'Emojis' });
 
-				// Enabling Meta Tags
-				new Setting(containerEl)
-					.setName('Enable Emojis')
-					.setDesc("You can set an emoji at the beginning of each index item depending on its type (file or folder). If multiple emojis matches, the first one will be stored."
-					)
-					.addToggle((t) => {
-						t.setValue(this.plugin.settings.enableEmojis);
-						t.onChange(async (v) => {
-							this.plugin.settings.enableEmojis = v;
-							await this.plugin.saveSettings();
-						});
-					});
-		
 
-				let emojiFolderDesc = 'Set an emoji for folders:'
-				if (this.plugin.settings.folderEmoji){
-					const setFolderEmoji = emoji.search(this.plugin.settings.folderEmoji);
-					emojiFolderDesc = `Matching Options:${setFolderEmoji[0].emoji} (${setFolderEmoji[0].key})`;
+			let emojiFolderDesc = 'Set an emoji for folders:'
+			if (this.plugin.settings.folderEmoji){
+				const setFolderEmoji = emoji.search(this.plugin.settings.folderEmoji);
+				emojiFolderDesc = `Matching Options:${setFolderEmoji[0].emoji} (${setFolderEmoji[0].key})`;
+			}
+			const emojiForFoldersSetting = new Setting(containerEl)
+				.setName('Emojis')
+				.setDesc(emojiFolderDesc)
+				.addText((text) =>
+					text.setPlaceholder('card_index_dividers')
+						.setValue(this.plugin.settings.folderEmoji.replace(/:/g, ''))
+						.onChange(async (value) => {
+							if (value !== ''){
+								const emojiOptions = emoji.search(value);
+								emojiForFoldersSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
+								if (emojiOptions.length > 0){
+									this.plugin.settings.folderEmoji = `:${emojiOptions[0].key}:`;
+									await this.plugin.saveSettings();
+								}
+							} else {
+								emojiForFoldersSetting.setDesc(
+									'Set an emoji for folders:'
+								)
+							}
+					}));
+				let emojiFileDesc = 'Set an emoji for files:'
+				if (this.plugin.settings.fileEmoji){
+					const setFileEmoji = emoji.search(this.plugin.settings.fileEmoji);
+					emojiFileDesc = `Matching Options:${setFileEmoji[0].emoji} (${setFileEmoji[0].key})`;
 				}
-				const emojiForFoldersSetting = new Setting(containerEl)
+					
+				const emojiForFilesSetting = new Setting(containerEl)
 					.setName('Emojis')
-					.setDesc(emojiFolderDesc)
+					.setDesc(emojiFileDesc)
 					.addText((text) =>
-						text.setPlaceholder('card_index_dividers')
-							.setValue(this.plugin.settings.folderEmoji.replace(/:/g, ''))
+						text.setPlaceholder('page_facing_up')
+							.setValue(this.plugin.settings.fileEmoji.replace(/:/g, ''))
 							.onChange(async (value) => {
 								if (value !== ''){
 									const emojiOptions = emoji.search(value);
-									emojiForFoldersSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
+									emojiForFilesSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
 									if (emojiOptions.length > 0){
-										this.plugin.settings.folderEmoji = `:${emojiOptions[0].key}:`;
+										this.plugin.settings.fileEmoji = `:${emojiOptions[0].key}:`;
 										await this.plugin.saveSettings();
 									}
 								} else {
-									emojiForFoldersSetting.setDesc(
-										'Set an emoji for folders:'
+									emojiForFilesSetting.setDesc(
+										'Set an emoji for files:'
 									)
 								}
-						}));
-					let emojiFileDesc = 'Set an emoji for files:'
-					if (this.plugin.settings.fileEmoji){
-						const setFileEmoji = emoji.search(this.plugin.settings.fileEmoji);
-						emojiFileDesc = `Matching Options:${setFileEmoji[0].emoji} (${setFileEmoji[0].key})`;
-					}
-					 
-					const emojiForFilesSetting = new Setting(containerEl)
-						.setName('Emojis')
-						.setDesc(emojiFileDesc)
-						.addText((text) =>
-							text.setPlaceholder('page_facing_up')
-								.setValue(this.plugin.settings.fileEmoji.replace(/:/g, ''))
-								.onChange(async (value) => {
-									if (value !== ''){
-										const emojiOptions = emoji.search(value);
-										emojiForFilesSetting.setDesc(`Matching Options:${emojiOptions.map(emojOp => emojOp.emoji + "("+emojOp.key+")")}`)
-										if (emojiOptions.length > 0){
-											this.plugin.settings.fileEmoji = `:${emojiOptions[0].key}:`;
-											await this.plugin.saveSettings();
-										}
-									} else {
-										emojiForFilesSetting.setDesc(
-											'Set an emoji for files:'
-										)
-									}
-							})
-				);
+						})
+			);
 				
 	}
 }

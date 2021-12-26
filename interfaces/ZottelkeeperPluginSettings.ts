@@ -17,6 +17,8 @@ export interface ZoottelkeeperPluginSettings {
   	sortOrder: SortOrder;
 	addSquareBrackets: boolean;
 	embedSubIndex: boolean;
+	templateFile: string;
+	frontMatterSeparator: string;
     [key: string]: any;
 
 }

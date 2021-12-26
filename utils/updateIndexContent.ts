@@ -11,7 +11,7 @@ export const updateIndexContent = (sortOrder: SortOrder, currentContent: string,
     const outro = currentContent.split(ZOOTTELKEEPER_INDEX_LIST_END_TEXT);	
 
     indexContent = indexContent.sort(function (a, b) {
-        return a.localeCompare(b);
+        return a.localeCompare(b, undefined, {numeric: true});
       });
     if(sortOrder === SortOrder.DESC)
       indexContent.reverse();
