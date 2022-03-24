@@ -3,6 +3,32 @@
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/akosbalasko/zoottelkeeper-obsidian-plugin?style=for-the-badge&sort=semver)](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin/releases/latest)
 ![GitHub All Releases](https://img.shields.io/github/downloads/akosbalasko/zoottelkeeper-obsidian-plugin/total?style=for-the-badge)
 
+## Changes in v.0.18.0
+
+- Include/Exclude folders improved: absolute paths are required, independently from its first character (it can be '/', or simply just start with the name of the folder within the root path to be included/excluded ).
+- Specific character is introduced: if you type '*' at the end of the folder, it means that it AND its subdirectories(recursively) will be included or excluded
+
+### Example: 
+Assuming that you have the following directories in the root of your vault: 
+```
+Notes
+Notes/Daily
+Articles
+Articles/Science
+```
+
+If you would like to include Notes, the Daily within and Articles to be included, but exclude Articles/Science you should set
+include property to:
+```
+Notes/* 
+Articles
+```
+and exclude property to:
+```
+Articles/Science
+```
+
+
 ## What's new in the latest version (v0.17.0)
 - Option to set a **template** for index files 
 - Numbers sorted correctly in index links (bug: https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin/issues/45)

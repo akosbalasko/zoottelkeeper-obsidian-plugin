@@ -85,13 +85,14 @@ export default class ZoottelkeeperPlugin extends Plugin {
 						Array.from(indexFiles2BUpdated)
 					)}`
 				);
-
+				
+				await this.removeDisallowedFoldersIndexes(indexFiles2BUpdated);
 				// update index files
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
 					await this.generateIndexContents(indexFile);
 				}
-
 				await this.cleanDisallowedFolders();
+
 			} catch (e) {}
 		}
 		this.lastVault = new Set(
@@ -255,13 +256,21 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
 	};
 
+	removeDisallowedFoldersIndexes = async (indexFiles: Set<string>): Promise<void> => {
+		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
+			const innerIndex = this.getInnerIndexFilePath(folder);
+			indexFiles.delete(innerIndex);
+		}
+	}
+
 	cleanDisallowedFolders = async (): Promise<void> => {
-		for (const folder of this.settings.foldersExcluded.split(',').map(f=> f.trim())){
+		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
 			const innerIndex = this.getInnerIndexFilePath(folder);
 			const indexTFile = this.app.vault.getAbstractFileByPath(innerIndex);
 			await this.app.vault.delete(indexTFile);
 		}
 	}
+
 	getParentFolder = (filePath: string): string => {
 		const fileFolderArray = filePath.split('/');
 		fileFolderArray.pop();
@@ -320,28 +329,48 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Folders included')
 			.setDesc(
-				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma. Empty list means all of the vault will be handled except the excluded folders.'
+				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line, example: Notes/ <enter> Articles/, which will include Notes and Articles folder in the root folder. Empty list means all of the vault will be handled except the excluded folders. \'*\' can be added to the end, to include the folder\'s subdirectories recursively, e.g. Notes/* <enter> Articles/'
 			)
-			.addText((text) =>
+			.addTextArea((text) =>
 				text
 					.setPlaceholder('')
 					.setValue(this.plugin.settings.foldersIncluded)
 					.onChange(async (value) => {
-						this.plugin.settings.foldersIncluded = value;
+						this.plugin.settings.foldersIncluded = value
+							.replace(/,/g,'\n')
+							.split('\n')
+							.map(
+								folder=> {
+									const f = folder.trim();
+									return f.startsWith('/')
+										? f.substring(1)
+										: f
+								})
+							.join('\n');
 						await this.plugin.saveSettings();
 					})
 			);
 		new Setting(containerEl)
 			.setName('Folders excluded')
 			.setDesc(
-				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault separated by comma.'
+				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line. Example:  "Notes/ <enter>  Articles/ ", it will exclude Notes and Articles folder in the root folder. * can be added to the end, to exclude the folder\'s subdirectories recursively.'
 			)
-			.addText((text) =>
+			.addTextArea((text) =>
 				text
 					.setPlaceholder('')
 					.setValue(this.plugin.settings.foldersExcluded)
 					.onChange(async (value) => {
-						this.plugin.settings.foldersExcluded = value;
+						this.plugin.settings.foldersExcluded = value
+							.replace(/,/g,'\n')
+							.split('\n')
+							.map(
+								folder=> {
+									const f = folder.trim();
+									return f.startsWith('/')
+										? f.substring(1)
+										: f
+								})
+							.join('\n');;
 						await this.plugin.saveSettings();
 					})
 			);
