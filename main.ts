@@ -329,7 +329,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Folders included')
 			.setDesc(
-				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault one per line. Empty list means all of the vault will be handled except the excluded folders. \n E.g. "Notes/ <enter> Articles/", \n that will include Notes and Articles folder in the root folder. * can be added to the end, to include the folder\'s subdirectories recursively, e.g. Notes/* <enter> Articles/'
+				'Specify the folders to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line, example: Notes/ <enter> Articles/, which will include Notes and Articles folder in the root folder. Empty list means all of the vault will be handled except the excluded folders. \'*\' can be added to the end, to include the folder\'s subdirectories recursively, e.g. Notes/* <enter> Articles/'
 			)
 			.addTextArea((text) =>
 				text
@@ -337,6 +337,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.foldersIncluded)
 					.onChange(async (value) => {
 						this.plugin.settings.foldersIncluded = value
+							.replace(/,/g,'\n')
 							.split('\n')
 							.map(
 								folder=> {
@@ -352,7 +353,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Folders excluded')
 			.setDesc(
-				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line. \n e.g. "Notes/ <enter>  Articles/ ", it will exclude Notes and Articles folder in the root folder. * can be added to the end, to exclude the folder\'s subdirectories recursively.'
+				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line. Example:  "Notes/ <enter>  Articles/ ", it will exclude Notes and Articles folder in the root folder. * can be added to the end, to exclude the folder\'s subdirectories recursively.'
 			)
 			.addTextArea((text) =>
 				text
@@ -360,6 +361,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.foldersExcluded)
 					.onChange(async (value) => {
 						this.plugin.settings.foldersExcluded = value
+							.replace(/,/g,'\n')
 							.split('\n')
 							.map(
 								folder=> {
