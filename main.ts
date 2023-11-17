@@ -258,7 +258,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	createIndexFilePath = (folderPath: string, folderName: string) => {
-		console.log(`${folderPath}${this.settings.indexPrefix}${folderName}.md`)
 		return `${folderPath}${this.settings.indexPrefix}${folderName}.md`;
 	}
 
