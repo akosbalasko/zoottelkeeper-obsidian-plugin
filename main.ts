@@ -1,4 +1,4 @@
-import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
+import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile } from 'obsidian';
 import { IndexItemStyle } from './interfaces/IndexItemStyle';
 import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
 import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
@@ -11,7 +11,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	lastVault: Set<string>;
 
 	triggerUpdateIndexFile = debounce(
-		this.keepTheZooClean.bind(this, false),
+		(file: TAbstractFile, oldPath?: string) => {
+			this.keepTheZooClean(false, file, oldPath)
+		},
 		3000,
 		true
 	);
@@ -38,66 +40,144 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
 	}
+
 	loadVault() {
-		this.lastVault = new Set(
+		this.lastVault = this.getVaultSet();
+	}
+
+	getVaultSet() {
+		return new Set(
 			this.app.vault.getMarkdownFiles().map((file) => file.path)
 		);
 	}
-	async keepTheZooClean(triggeredManually?: boolean) {
+
+	async keepTheZooClean(triggeredManually?: boolean, file?: TAbstractFile, oldPath?: string) {
 		console.debug('keeping the zoo clean...');
 		if (this.lastVault || triggeredManually) {
-			const vaultFilePathsSet = new Set(
-				this.app.vault.getMarkdownFiles().map((file) => file.path)
-			);
+			const vaultFilePathsSet = this.getVaultSet();
 			try {
-				// getting the changed files using symmetric diff
+				const changedFiles = this.getCreatedAndDeletedFiles(vaultFilePathsSet)
 
-				let changedFiles = new Set([
-					...Array.from(vaultFilePathsSet).filter(
-						(currentFile) => !this.lastVault.has(currentFile)
-					),
-					...Array.from(this.lastVault).filter(
-						(currentVaultFile) => !vaultFilePathsSet.has(currentVaultFile)
-					),
-				]);
 				console.debug(
-					`changedFiles: ${JSON.stringify(Array.from(changedFiles))}`
+					`changedFiles: ${JSON.stringify(changedFiles)}`
 				);
-				// getting index files to be updated
-				const indexFiles2BUpdated = new Set<string>();
 
-				for (const changedFile of Array.from(changedFiles)) {
-					const indexFilePath = this.getIndexFilePath(changedFile);
-					if (indexFilePath
-						&& isInAllowedFolder(this.settings, indexFilePath)
-						&& !isInDisAllowedFolder(this.settings, indexFilePath)) {
-						indexFiles2BUpdated.add(indexFilePath);
-					}
+				const indexFileAndNewPath = this.getIndexFile2BRenamed(file, oldPath)
 
-					// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
-					const parentIndexFilePath = this.getIndexFilePath(
-						this.getParentFolder(changedFile)
-					);
-					if (parentIndexFilePath) indexFiles2BUpdated.add(parentIndexFilePath);
-				}
+				const indexFiles2BUpdated = this.getIndexFiles2BUpdated(changedFiles)
+
 				console.debug(
 					`Index files to be updated: ${JSON.stringify(
 						Array.from(indexFiles2BUpdated)
 					)}`
 				);
-				
-				await this.removeDisallowedFoldersIndexes(indexFiles2BUpdated);
-				// update index files
-				for (const indexFile of Array.from(indexFiles2BUpdated)) {
-					await this.generateIndexContents(indexFile);
-				}
-				await this.cleanDisallowedFolders();
+
+				await this.renameIndexFile(indexFileAndNewPath)
+				await this.updateIndexFiles(indexFiles2BUpdated)
 
 			} catch (e) {}
 		}
-		this.lastVault = new Set(
-			this.app.vault.getMarkdownFiles().map((file) => file.path)
-		);
+		this.lastVault = this.getVaultSet();
+	}
+
+	getCreatedAndDeletedFiles(vaultFilePathsSet: Set<string>) {
+		// getting the changed files using symmetric diff
+		const createdFiles = Array.from(vaultFilePathsSet).filter(
+			(currentFile) => !this.lastVault.has(currentFile)
+		)
+		const deletedFiles = Array.from(this.lastVault).filter(
+			(currentVaultFile) => !vaultFilePathsSet.has(currentVaultFile)
+		)
+
+		let changedFiles = Array.from(new Set([
+			...createdFiles,
+			...deletedFiles,
+		]));
+
+		return changedFiles
+	}
+
+	getIndexFile2BRenamed(file?: TAbstractFile, oldPath?: string): { file: TFile, newPath: string } | undefined {
+		if (!file || !oldPath) return undefined;
+
+		const createdFileSplit = file.path.split('/')
+		const deletedFileSplit = oldPath.split('/')
+		const createdFileName = file.name
+		const deletedFileName = deletedFileSplit.last()
+
+		// the file itself was renamed, not the folder
+		if (createdFileName !== deletedFileName) return undefined
+
+		// The file was moved to a shallower or deeper nested directory
+		if (createdFileSplit.length !== deletedFileSplit.length) return undefined
+
+		// Find the folder that was renamed
+		for (let i = 0; i < createdFileSplit.length; i++) {
+			const createdParentFolder = createdFileSplit[i];
+			const deletedParentFolder = deletedFileSplit[i];
+			
+			// This folder has not changed
+			if (createdParentFolder === deletedParentFolder) continue
+
+			// Is the index file of the old folder still present in the new folder?
+			const indexFilePath = `${createdFileSplit.slice(0, i + 1).join('/')}/${this.settings.indexPrefix}${deletedParentFolder}.md`
+			const folderOrIndexFile = this.app.vault.getAbstractFileByPath(indexFilePath)
+			
+			// The old index file is still there => folder has been renamed and the file can be deleted
+			if (folderOrIndexFile instanceof TFile) {
+				const newPath = this.getIndexFilePath(`${createdFileSplit.slice(0, i + 1).join('/')}/`)
+				return { file: folderOrIndexFile, newPath }
+			} 
+
+			// If there is no such file, either that folder is excluded or the file was moved there.
+			// In both cases there is no action necessary
+			return undefined
+		}
+	}
+
+	getIndexFiles2BUpdated(changedFiles: string[]) {
+		const indexFiles2BUpdated = new Set<string>();
+
+		for (const changedFile of changedFiles) {
+			const indexFilePath = this.getIndexFilePath(changedFile);
+			if (indexFilePath
+				&& isInAllowedFolder(this.settings, indexFilePath)
+				&& !isInDisAllowedFolder(this.settings, indexFilePath)) {
+				indexFiles2BUpdated.add(indexFilePath);
+			}
+
+			// getting the parents' index notes of each changed file in order to update their links as well (hierarhical backlinks)
+			const parentIndexFilePath = this.getIndexFilePath(
+				this.getParentFolder(changedFile)
+			);
+			if (parentIndexFilePath) indexFiles2BUpdated.add(parentIndexFilePath);
+		}
+
+		return indexFiles2BUpdated
+	}
+
+	async renameIndexFile(indexFileAndNewPath: { file: TFile, newPath: string } | undefined) {
+		if (!indexFileAndNewPath) return
+
+		const { file, newPath } = indexFileAndNewPath
+
+		const newIndexFile = this.app.vault.getAbstractFileByPath(newPath)
+		const newIndexFileExists = newIndexFile instanceof TFile
+
+		if (newIndexFileExists) {
+			await this.app.vault.delete(newIndexFile)
+		}
+
+		await this.app.vault.rename(file, newPath)
+	}
+
+	async updateIndexFiles(indexFiles2BUpdated: Set<string>) {
+		await this.removeDisallowedFoldersIndexes(indexFiles2BUpdated);
+		// update index files
+		for (const indexFile of Array.from(indexFiles2BUpdated)) {
+			await this.generateIndexContents(indexFile);
+		}
+		await this.cleanDisallowedFolders();
 	}
 
 	onunload() {
@@ -292,17 +372,13 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	isIndexFile = (item: TAbstractFile): boolean => {
-
 		return this.isFile(item)
-			&& (this.settings.indexPrefix === ''
-				? item.name === item.parent.name
-				: item.name.startsWith(this.settings.indexPrefix));
+			&& item.name === `${this.settings.indexPrefix}${item.parent.name}`
 	}
 
 	isFile = (item: TAbstractFile): boolean => {
 		return item instanceof TFile;
 	}
-
 }
 
 class ZoottelkeeperPluginModal extends Modal {
