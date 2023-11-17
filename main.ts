@@ -237,8 +237,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	getInnerIndexFilePath = (folderPath: string): string => {
 		const folderName = this.getFolderName(folderPath);
-		return `${folderPath}/${this.settings.indexPrefix}${folderName}.md`;
+		return this.createIndexFilePath(folderPath, folderName);
 	}
+
 	getIndexFilePath = (filePath: string): string => {
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
 
@@ -253,8 +254,15 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		}
 		const parentName = this.getParentFolderName(filePath);
 
-		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
-	};
+		return this.createIndexFilePath(parentPath, parentName);
+	}
+
+	createIndexFilePath = (folderPath: string, folderName: string) => {
+		if (!folderPath.endsWith('/') && folderPath !== '') {
+			folderPath += '/';
+		}
+		return `${folderPath}${this.settings.indexPrefix}${folderName}.md`;
+	}
 
 	removeDisallowedFoldersIndexes = async (indexFiles: Set<string>): Promise<void> => {
 		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
@@ -262,7 +270,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			indexFiles.delete(innerIndex);
 		}
 	}
-
+	
 	cleanDisallowedFolders = async (): Promise<void> => {
 		for (const folder of this.settings.foldersExcluded.split('\n').map(f=> f.trim())){
 			const innerIndex = this.getInnerIndexFilePath(folder);
@@ -353,7 +361,7 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Folders excluded')
 			.setDesc(
-				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line. Example:  "Notes/ <enter>  Articles/ ", it will exclude Notes and Articles folder in the root folder. * can be added to the end, to exclude the folder\'s subdirectories recursively.'
+				'Specify the folders NOT to be handled by Zoottelkeeper. They must be absolute paths starting from the root vault, one per line, an empty line excluding the root folder itself. Example:  "Notes/ <enter>  Articles/ ", it will exclude Notes and Articles folder in the root folder. * can be added to the end, to exclude the folder\'s subdirectories recursively.'
 			)
 			.addTextArea((text) =>
 				text
