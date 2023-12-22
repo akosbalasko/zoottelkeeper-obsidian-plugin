@@ -1,6 +1,6 @@
-import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TAbstractFile, } from 'obsidian';
+import { App, Modal, debounce, Plugin, PluginSettingTab, Setting, TFile, TFolder, TAbstractFile, } from 'obsidian';
 import { IndexItemStyle } from './interfaces/IndexItemStyle';
-import { GeneralContentOptions, ZoottelkeeperPluginSettings } from './interfaces'
+import { GeneralContentOptions, ZoottelkeeperPluginSettings, FileExplorerWorkspaceLeaf } from './interfaces'
 import { isInAllowedFolder, isInDisAllowedFolder, updateFrontmatter, updateIndexContent, removeFrontmatter, hasFrontmatter } from './utils'
 import { DEFAULT_SETTINGS } from './defaultSettings';
 import * as emoji from 'node-emoji';
@@ -18,6 +18,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		if (this.settings.hideIndexFile) { document.body.classList.add('hide-index-file'); }
 		this.app.workspace.onLayoutReady(async () => {
 			this.loadVault();
 			console.debug(
@@ -37,6 +38,18 @@ export default class ZoottelkeeperPlugin extends Plugin {
 		);
 
 		this.addSettingTab(new ZoottelkeeperPluginSettingTab(this.app, this));
+
+		this.registerEvent(this.app.workspace.on('layout-change', () => {
+			this.loadFileClasses();
+			
+		}));
+
+		if (this.app.workspace.layoutReady) {
+			this.loadFileClasses();
+			 
+		} else {
+			this.app.workspace.onLayoutReady(async () => this.loadFileClasses());
+		}
 	}
 	loadVault() {
 		this.lastVault = new Set(
@@ -90,6 +103,7 @@ export default class ZoottelkeeperPlugin extends Plugin {
 				// update index files
 				for (const indexFile of Array.from(indexFiles2BUpdated)) {
 					await this.generateIndexContents(indexFile);
+					this.addCSSClassToTitleEL(indexFile, 'is-index-file');
 				}
 				await this.cleanDisallowedFolders();
 
@@ -101,7 +115,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.debug('unloading plugin');
+		console.debug('Unloading Zoottelkeeper plugin');
+		document.body.classList.remove('hide-index-file');
 	}
 
 	async loadSettings() {
@@ -128,7 +143,6 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			return this.generateIndexContent(indexTFile);
 	};
 
-	
 
 	generateGeneralIndexContent = (options: GeneralContentOptions): Array<string> => {
 		return options.items
@@ -237,7 +251,8 @@ export default class ZoottelkeeperPlugin extends Plugin {
 
 	getInnerIndexFilePath = (folderPath: string): string => {
 		const folderName = this.getFolderName(folderPath);
-		return `${folderPath}/${this.settings.indexPrefix}${folderName}.md`;
+		const indexFileName = this.settings.indexFileName.replace("{{folder_name}}", folderName)
+		return `${folderPath}/${indexFileName}.md`;
 	}
 	getIndexFilePath = (filePath: string): string => {
 		const fileAbstrPath = this.app.vault.getAbstractFileByPath(filePath);
@@ -252,8 +267,9 @@ export default class ZoottelkeeperPlugin extends Plugin {
 			parentPath = `${parentPath}/`;
 		}
 		const parentName = this.getParentFolderName(filePath);
+		const indexFileName = this.settings.indexFileName.replace("{{folder_name}}", parentName)
 
-		return `${parentPath}${this.settings.indexPrefix}${parentName}.md`;
+		return `${parentPath}${indexFileName}.md`;
 	};
 
 	removeDisallowedFoldersIndexes = async (indexFiles: Set<string>): Promise<void> => {
@@ -292,16 +308,64 @@ export default class ZoottelkeeperPlugin extends Plugin {
 	}
 
 	isIndexFile = (item: TAbstractFile): boolean => {
-
+		const patternString = this.settings.indexFileName.replace("{{folder_name}}", "(.*?)");
+		const indexFilenamePattern = new RegExp("^" + patternString + ".md$");
 		return this.isFile(item)
-			&& (this.settings.indexPrefix === ''
+			&& (this.settings.indexFileName === ''
 				? item.name === item.parent.name
-				: item.name.startsWith(this.settings.indexPrefix));
+				: indexFilenamePattern.test(item.name));
 	}
 
 	isFile = (item: TAbstractFile): boolean => {
 		return item instanceof TFile;
 	}
+
+	loadFileClasses() {
+		const vaultFilePathsSet = new Set(
+			this.app.vault.getMarkdownFiles().map((file) => file.path)
+		);
+			
+		for (const indexFile of Array.from(vaultFilePathsSet)) {
+			const file = this.app.vault.getAbstractFileByPath(indexFile);
+			if (this.isIndexFile(file)) {
+				this.addCSSClassToTitleEL(indexFile, 'is-index-file');
+			}
+		}
+	}
+
+	getFileExplorer() {
+		return this.app.workspace.getLeavesOfType('file-explorer')[0] as FileExplorerWorkspaceLeaf;
+	}
+
+	getEL(path: string): HTMLElement | null {
+		const fileExplorer = this.getFileExplorer();
+		if (!fileExplorer) { return null; }
+		const fileExplorerItem = fileExplorer.view.fileItems[path];
+		if (!fileExplorerItem) { return null; }
+		if (fileExplorerItem.selfEl) return fileExplorerItem.selfEl;
+		return fileExplorerItem.titleEl;
+	}
+
+	async addCSSClassToTitleEL(path: string, cssClass: string, waitForCreate = false, count = 0) {
+		const fileExplorerItem = this.getEL(path);
+		if (!fileExplorerItem) {
+			if (waitForCreate && count < 5) {
+			// sleep for a second for the file-explorer event to catch up
+			// this is annoying as in most scanarios our plugin recieves the event before file explorer
+			// If we could guarrantee load order it wouldn't be an issue but we can't
+			// realise this is racey and needs to be fixed.
+			await new Promise((r) => setTimeout(r, 500));
+			this.addCSSClassToTitleEL(path, cssClass, waitForCreate, count + 1);
+			return;
+		}
+		return;
+	}
+	fileExplorerItem.addClass(cssClass);
+	const viewHeaderItems = document.querySelectorAll(`[data-path="${path}"]`);
+	viewHeaderItems.forEach((item) => {
+		item.addClass(cssClass);
+	});
+}
 
 }
 
@@ -444,19 +508,29 @@ class ZoottelkeeperPluginSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// index prefix
 		new Setting(containerEl)
-			.setName('Index Prefix')
+			.setName('Hide index file')
+			.setDesc('Toggle to hide or show the index file. Restart to apply changes')
+			.addToggle((t) => {
+				t.setValue(this.plugin.settings.hideIndexFile);
+				t.onChange(async (value) => {
+					this.plugin.settings.hideIndexFile = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName('Index file name')
 			.setDesc(
-				'Per default the file is named after your folder, but you can prefix it here.'
+				'{{folder_name}} will be replaced with the name of the folder'
 			)
 			.addText((text) =>
 				text
 					.setPlaceholder('')
-					.setValue(this.plugin.settings.indexPrefix)
+					.setValue(this.plugin.settings.indexFileName)
 					.onChange(async (value) => {
-						console.debug('Index prefix: ' + value);
-						this.plugin.settings.indexPrefix = value;
+						console.debug('Index file name: ' + value);
+						this.plugin.settings.indexFileName = value;
 						await this.plugin.saveSettings();
 					})
 			);
