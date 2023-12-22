@@ -2,7 +2,7 @@ import { SortOrder } from 'models';
 import { IndexItemStyle, ZoottelkeeperPluginSettings } from './interfaces'
 
 export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
-	indexPrefix: '_Index_of_',
+	indexFileName: '_Index_of_{{folder_name}}',
 	indexItemStyle: IndexItemStyle.PureLink,
 	indexTagValue: 'MOC',
 	indexTagBoolean: true,
@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: ZoottelkeeperPluginSettings = {
 	folderEmoji: ':card_index_dividers:',
 	fileEmoji: ':page_facing_up:',
 	enableEmojis: false,
+	hideIndexFile: false,
 	foldersExcluded: '',
 	foldersIncluded: '',
 	sortOrder: SortOrder.ASC,

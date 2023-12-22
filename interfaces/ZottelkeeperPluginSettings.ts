@@ -2,7 +2,7 @@ import { SortOrder } from './../models';
 import { IndexItemStyle } from './IndexItemStyle';
 
 export interface ZoottelkeeperPluginSettings {
-	indexPrefix: string;
+	indexFileName: string;
 	indexItemStyle: IndexItemStyle;
 	indexTagValue: string;
 	indexTagBoolean: boolean;
@@ -12,6 +12,7 @@ export interface ZoottelkeeperPluginSettings {
 	folderEmoji: string;
 	fileEmoji: string;
 	enableEmojis: boolean;
+	hideIndexFile: boolean;
 	foldersIncluded: string;
 	foldersExcluded: string;
   	sortOrder: SortOrder;
